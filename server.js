@@ -4,6 +4,8 @@ import cors from "cors";
 import multer from "multer";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+console.log("SUPABASE_URL =", process.env.SUPABASE_URL);
+console.log("SUPABASE_KEY =", process.env.SUPABASE_KEY ? "FOUND" : "MISSING");
 dotenv.config();
 
 const app = express();
