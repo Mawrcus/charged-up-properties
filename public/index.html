@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Charged Up Properties - Admin</title>
   <style>
-    /* --- Basic Colors & Theme --- */
     body {
       background-color: #000;
       color: #fff;
@@ -12,30 +11,25 @@
       margin: 0;
       padding: 0;
     }
-
     header {
-      background-color: #E10600; /* Your red from logo */
+      background-color: #E10600;
       padding: 20px;
       text-align: center;
       font-size: 2rem;
       font-weight: bold;
       color: #fff;
     }
-
     main {
       padding: 20px;
       max-width: 1200px;
       margin: auto;
     }
-
-    /* --- Forms --- */
     form {
       background: #111;
       padding: 20px;
       margin-bottom: 40px;
       border-radius: 8px;
     }
-
     form input, form select, form textarea {
       display: block;
       width: 100%;
@@ -46,7 +40,6 @@
       background: #222;
       color: #fff;
     }
-
     form button {
       background-color: #E10600;
       color: #fff;
@@ -56,23 +49,18 @@
       font-size: 1rem;
       border-radius: 4px;
     }
-
     form button:hover {
       background-color: #b80000;
     }
-
-    /* --- Property List --- */
     .property {
       background: #111;
       border-radius: 8px;
       padding: 15px;
       margin-bottom: 20px;
     }
-
     .property h3 {
       margin-top: 0;
     }
-
     .property img {
       max-width: 150px;
       max-height: 100px;
@@ -82,17 +70,13 @@
       border: 2px solid #444;
       border-radius: 4px;
     }
-
     .property .gallery img {
       max-width: 80px;
       max-height: 80px;
     }
-
     .property button {
       margin: 5px;
     }
-
-    /* --- Modal Zoom --- */
     #imageModal {
       display: none;
       position: fixed;
@@ -105,12 +89,10 @@
       justify-content: center;
       align-items: center;
     }
-
     #imageModal img {
       max-width: 90%;
       max-height: 90%;
     }
-
     #imageModal span {
       position: absolute;
       top: 20px;
@@ -119,7 +101,6 @@
       color: #fff;
       cursor: pointer;
     }
-
     .arrow {
       cursor: pointer;
       font-size: 2rem;
@@ -127,11 +108,35 @@
       margin: 0 10px;
       user-select: none;
     }
-
     .flex-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .image-preview {
+      position: relative;
+      display: inline-block;
+      margin-right: 5px;
+    }
+    .image-preview img {
+      max-width: 100px;
+      max-height: 100px;
+      object-fit: cover;
+      border: 2px solid #444;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .image-preview button {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: red;
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -141,9 +146,9 @@
 
 <main>
 
-  <!-- --- Add/Edit Form --- -->
   <form id="propertyForm">
     <input type="hidden" id="propertyId">
+
     <label>Name:</label>
     <input type="text" id="name" required>
 
@@ -183,17 +188,19 @@
 
     <label>Cover Image:</label>
     <input type="file" id="coverImage" accept="image/*">
+    <div id="coverPreview"></div>
 
     <label>Gallery Images:</label>
     <input type="file" id="galleryImages" accept="image/*" multiple>
+    <div id="galleryPreview" class="flex-row"></div>
 
     <button type="submit">Save Property</button>
   </form>
 
   <div id="propertyList"></div>
+
 </main>
 
-<!-- Modal for zoom -->
 <div id="imageModal">
   <span id="closeModal">&times;</span>
   <span class="arrow" id="prev">&#10094;</span>
@@ -202,13 +209,14 @@
 </div>
 
 <script>
-const API_URL = "https://charged-up-properties-backend.onrender.com/api/properties"; // your backend URL
+const API_URL = "https://charged-up-properties-backend.onrender.com/api/properties";
 
 let properties = [];
 let currentZoomIndex = 0;
 let currentGallery = [];
+let editingProperty = null;
 
-// --- Load Properties ---
+// Load properties from backend
 async function loadProperties() {
   try {
     const res = await fetch(API_URL);
@@ -219,10 +227,11 @@ async function loadProperties() {
   }
 }
 
-// --- Render Properties ---
+// Render property list
 function renderProperties() {
   const list = document.getElementById("propertyList");
   list.innerHTML = "";
+
   properties.forEach(prop => {
     const div = document.createElement("div");
     div.className = "property";
@@ -243,7 +252,6 @@ function renderProperties() {
     list.appendChild(div);
   });
 
-  // Add click to zoom
   document.querySelectorAll(".property img").forEach(img => {
     img.onclick = e => {
       const parentId = e.target.dataset.id;
@@ -257,7 +265,7 @@ function renderProperties() {
   });
 }
 
-// --- Form Submit ---
+// Form submit
 document.getElementById("propertyForm").addEventListener("submit", async e => {
   e.preventDefault();
   const id = document.getElementById("propertyId").value;
@@ -275,28 +283,28 @@ document.getElementById("propertyForm").addEventListener("submit", async e => {
   formData.append("basement", document.getElementById("basement").value);
   formData.append("description", document.getElementById("description").value);
 
-  // Images
+  // Cover image
   const coverFile = document.getElementById("coverImage").files[0];
   if (coverFile) formData.append("coverImage", coverFile);
+
+  // Gallery images
   const galleryFiles = document.getElementById("galleryImages").files;
   for (let f of galleryFiles) formData.append("galleryImages", f);
 
-  // If editing
   if (id) {
-    formData.append("cover_image", ""); // leave empty to not overwrite if no new upload
-    formData.append("gallery_images", "[]"); // leave empty to not overwrite
     await fetch(`${API_URL}/${id}`, { method: "PUT", body: formData });
   } else {
     await fetch(API_URL, { method: "POST", body: formData });
   }
 
-  // Reset form
   document.getElementById("propertyForm").reset();
+  document.getElementById("coverPreview").innerHTML = "";
+  document.getElementById("galleryPreview").innerHTML = "";
   document.getElementById("propertyId").value = "";
   loadProperties();
 });
 
-// --- Edit Property ---
+// Edit property
 function editProperty(id) {
   const prop = properties.find(p => p.id == id);
   document.getElementById("propertyId").value = id;
@@ -311,16 +319,46 @@ function editProperty(id) {
   document.getElementById("lot").value = prop.lot;
   document.getElementById("basement").value = prop.basement;
   document.getElementById("description").value = prop.description;
+
+  // Cover preview
+  const coverPreview = document.getElementById("coverPreview");
+  coverPreview.innerHTML = "";
+  if (prop.cover_image) {
+    const div = document.createElement("div");
+    div.className = "image-preview";
+    div.innerHTML = `<img src="${prop.cover_image}"><button onclick="deleteCoverPreview(event)">x</button>`;
+    coverPreview.appendChild(div);
+  }
+
+  // Gallery preview
+  const galleryPreview = document.getElementById("galleryPreview");
+  galleryPreview.innerHTML = "";
+  (prop.gallery_images || []).forEach(url => {
+    const div = document.createElement("div");
+    div.className = "image-preview";
+    div.innerHTML = `<img src="${url}"><button onclick="deleteGalleryPreview(event)">x</button>`;
+    galleryPreview.appendChild(div);
+  });
 }
 
-// --- Delete Property ---
+function deleteCoverPreview(e) {
+  e.preventDefault();
+  e.target.parentElement.remove();
+}
+
+function deleteGalleryPreview(e) {
+  e.preventDefault();
+  e.target.parentElement.remove();
+}
+
+// Delete property
 async function deleteProperty(id) {
   if (!confirm("Delete this property?")) return;
   await fetch(`${API_URL}/${id}`, { method: "DELETE" });
   loadProperties();
 }
 
-// --- Modal for Zoom ---
+// Modal zoom
 const modal = document.getElementById("imageModal");
 const modalImg = document.getElementById("modalImage");
 const closeModalBtn = document.getElementById("closeModal");
@@ -328,23 +366,22 @@ const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
 
 function showModal() {
+  if (currentGallery.length === 0) return;
   modal.style.display = "flex";
   modalImg.src = currentGallery[currentZoomIndex];
 }
 
 closeModalBtn.onclick = () => modal.style.display = "none";
-
 prevBtn.onclick = () => {
   currentZoomIndex = (currentZoomIndex - 1 + currentGallery.length) % currentGallery.length;
   modalImg.src = currentGallery[currentZoomIndex];
 };
-
 nextBtn.onclick = () => {
   currentZoomIndex = (currentZoomIndex + 1) % currentGallery.length;
   modalImg.src = currentGallery[currentZoomIndex];
 };
 
-// --- Initial load ---
+// Initial load
 loadProperties();
 </script>
 
