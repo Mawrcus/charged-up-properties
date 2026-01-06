@@ -195,7 +195,7 @@ button:hover{background:#a61f1f}
 <div id="galleryPreview" class="preview-row"></div>
 
 <button type="submit">Save Property</button>
-<button type="button" onclick="resetForm()" style="margin-left:10px;background:#333">Add New</button>
+<button type="button" onclick="resetForm()" style="margin-left:10px;background:#333">Clear Form</button>
 </form>
 
 <div id="inventory" class="inventory-grid"></div>
@@ -304,8 +304,23 @@ async function del(id){
 propertyForm.onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData();
-  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
-    .forEach(k=>fd.append(k,window[k].value));
+  [
+  "name",
+  "price",
+  "status",
+  "address",
+  "beds",
+  "baths",
+  "sqft",
+  "type",
+  "lot",
+  "basement",
+  "description"
+].forEach(id => {
+  const el = document.getElementById(id);
+  fd.append(id, el ? el.value : "");
+});
+
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
   if(removeCover) fd.append("removeCover","true");
