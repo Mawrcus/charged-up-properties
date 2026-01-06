@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Charged Up Properties Admin</title>
+<title>Charged Up Properties – Inventory</title>
 
 <style>
 :root {
-  --red:#d32f2f;
-  --dark:#0e0e0e;
-  --card:#161616;
-  --border:#2a2a2a;
+  --red:#c62828;
+  --black:#0b0b0b;
+  --card:#151515;
+  --border:#2b2b2b;
   --text:#ffffff;
 }
 
@@ -17,56 +17,68 @@
 
 body {
   margin:0;
-  background:var(--dark);
+  background:var(--black);
   color:var(--text);
   font-family:Arial, Helvetica, sans-serif;
 }
 
-h1 {
+header {
+  background:var(--red);
+  padding:20px;
   text-align:center;
-  color:var(--red);
-  margin:25px 0;
+  font-size:24px;
+  font-weight:bold;
 }
 
 .container {
   max-width:1400px;
   margin:auto;
-  padding:0 20px 60px;
+  padding:30px 20px 60px;
 }
 
 /* ================= FORM ================= */
 
 form {
   background:var(--card);
-  border-radius:12px;
   padding:20px;
+  border-radius:12px;
   margin-bottom:40px;
-  box-shadow:0 10px 30px rgba(0,0,0,.4);
+  box-shadow:0 15px 35px rgba(0,0,0,.5);
 }
 
-label { margin-top:12px; display:block; font-size:14px; }
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:15px;
+}
+
+label {
+  font-size:13px;
+  opacity:.9;
+}
 
 input, textarea, select {
   width:100%;
-  margin-top:5px;
   padding:10px;
-  background:#111;
+  margin-top:5px;
+  background:#101010;
   color:#fff;
   border:1px solid var(--border);
   border-radius:6px;
 }
 
+textarea { min-height:90px; }
+
 button {
   background:var(--red);
-  color:#fff;
   border:none;
   padding:10px 18px;
+  color:#fff;
   border-radius:6px;
   cursor:pointer;
-  margin-top:15px;
 }
 
-button:hover { background:#b71c1c; }
+button:hover { background:#a61f1f; }
 
 .preview-row {
   display:flex;
@@ -80,26 +92,29 @@ button:hover { background:#b71c1c; }
 }
 
 .preview img {
-  height:90px;
   width:120px;
+  height:90px;
   object-fit:cover;
   border-radius:6px;
   border:1px solid var(--border);
+  cursor:pointer;
 }
 
-.preview button {
+.preview .remove {
   position:absolute;
   top:-6px;
   right:-6px;
+  background:#000;
+  border:1px solid #444;
+  font-size:11px;
   padding:2px 6px;
-  font-size:12px;
 }
 
-/* ================= INVENTORY GRID ================= */
+/* ================= INVENTORY ================= */
 
 .inventory-grid {
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
   gap:25px;
 }
 
@@ -107,18 +122,11 @@ button:hover { background:#b71c1c; }
   background:var(--card);
   border-radius:12px;
   overflow:hidden;
-  box-shadow:0 10px 25px rgba(0,0,0,.4);
 }
 
-.card-cover {
+.card img.cover {
   width:100%;
-  height:190px;
-  background:#000;
-}
-
-.card-cover img {
-  width:100%;
-  height:100%;
+  height:180px;
   object-fit:cover;
   cursor:pointer;
 }
@@ -127,14 +135,15 @@ button:hover { background:#b71c1c; }
   padding:15px;
 }
 
-.card-title {
-  font-size:18px;
-  font-weight:bold;
+.price {
+  color:var(--red);
+  margin:5px 0;
 }
 
-.card-price {
-  color:var(--red);
-  margin:5px 0 10px;
+.meta {
+  font-size:13px;
+  opacity:.85;
+  margin-bottom:8px;
 }
 
 .gallery-grid {
@@ -144,23 +153,22 @@ button:hover { background:#b71c1c; }
 }
 
 .gallery-grid img {
-  height:70px;
   width:100%;
+  height:70px;
   object-fit:cover;
   border-radius:6px;
   cursor:pointer;
-  border:1px solid var(--border);
 }
 
-.card-actions {
-  margin-top:12px;
+.actions {
   display:flex;
   gap:10px;
+  margin-top:12px;
 }
 
 /* ================= MODAL ================= */
 
-.modal {
+#modal {
   display:none;
   position:fixed;
   inset:0;
@@ -170,14 +178,13 @@ button:hover { background:#b71c1c; }
   justify-content:center;
 }
 
-.modal img {
+#modal img {
   max-width:95%;
   max-height:95%;
 }
 
-.modal span {
+#modal span {
   position:absolute;
-  color:#fff;
   font-size:40px;
   cursor:pointer;
   user-select:none;
@@ -186,47 +193,52 @@ button:hover { background:#b71c1c; }
 .close { top:20px; right:30px; }
 .prev { left:20px; }
 .next { right:20px; }
-
 </style>
 </head>
 
 <body>
 
-<h1>Charged Up Properties Admin</h1>
+<header>Charged Up Properties – Inventory</header>
 
 <div class="container">
 
 <form id="propertyForm">
 <input type="hidden" id="propertyId">
 
-<label>Name</label><input id="name" required>
-<label>Price</label><input id="price" type="number" required>
-<label>Status</label>
-<select id="status">
-  <option>For Sale</option>
-  <option>Pending</option>
-  <option>Sold</option>
-</select>
-<label>Description</label><textarea id="description"></textarea>
+<div class="grid">
+  <div><label>Name<input id="name" required></label></div>
+  <div><label>Price<input id="price" type="number"></label></div>
+  <div><label>Status<select id="status">
+    <option>For Sale</option>
+    <option>Pending</option>
+    <option>Sold</option>
+  </select></label></div>
+  <div><label>Beds<input id="beds" type="number"></label></div>
+  <div><label>Baths<input id="baths" type="number" step="0.5"></label></div>
+  <div><label>Sq Ft<input id="sqft" type="number"></label></div>
+  <div><label>Basement<select id="basement">
+    <option value="No">No</option>
+    <option value="Yes">Yes</option>
+  </select></label></div>
+</div>
 
-<label>Cover Image</label>
-<input type="file" id="coverImage">
-<div class="preview-row" id="coverPreview"></div>
+<label>Description<textarea id="description"></textarea></label>
 
-<label>Gallery Images</label>
-<input type="file" id="galleryImages" multiple>
-<div class="preview-row" id="galleryPreview"></div>
+<label>Cover Image<input type="file" id="coverImage"></label>
+<div id="coverPreview" class="preview-row"></div>
+
+<label>Gallery Images<input type="file" id="galleryImages" multiple></label>
+<div id="galleryPreview" class="preview-row"></div>
 
 <button type="submit">Save Property</button>
 </form>
 
-<h2>Current Inventory</h2>
-<div class="inventory-grid" id="propertyList"></div>
+<div class="inventory-grid" id="inventory"></div>
 
 </div>
 
 <!-- MODAL -->
-<div class="modal" id="modal">
+<div id="modal">
   <span class="close">&times;</span>
   <span class="prev">&#10094;</span>
   <img id="modalImg">
@@ -234,94 +246,105 @@ button:hover { background:#b71c1c; }
 </div>
 
 <script>
-const API = "https://charged-up-properties-backend.onrender.com/api/properties";
-let properties=[], modalIndex=0, modalImages=[];
+const API="https://charged-up-properties-backend.onrender.com/api/properties";
+let data=[], modalImgs=[], modalIndex=0;
+let removedGallery=[], removeCover=false;
 
 const modal=document.getElementById("modal");
 const modalImg=document.getElementById("modalImg");
 
-function openModal(images,i){
-  modalImages=images.filter(Boolean);
+function openModal(arr,i){
+  modalImgs=arr;
   modalIndex=i;
-  modalImg.src=modalImages[modalIndex];
+  modalImg.src=arr[i];
   modal.style.display="flex";
 }
 document.querySelector(".close").onclick=()=>modal.style.display="none";
-document.querySelector(".prev").onclick=()=>change(-1);
-document.querySelector(".next").onclick=()=>change(1);
-document.addEventListener("keydown",e=>{ if(e.key==="Escape") modal.style.display="none"; });
+document.querySelector(".prev").onclick=()=>navigate(-1);
+document.querySelector(".next").onclick=()=>navigate(1);
 
-function change(d){
-  modalIndex=(modalIndex+d+modalImages.length)%modalImages.length;
-  modalImg.src=modalImages[modalIndex];
+function navigate(d){
+  modalIndex=(modalIndex+d+modalImgs.length)%modalImgs.length;
+  modalImg.src=modalImgs[modalIndex];
 }
 
-async function loadProperties(){
+async function load(){
   const res=await fetch(API);
-  properties=await res.json();
-  const list=document.getElementById("propertyList");
-  list.innerHTML="";
-  properties.forEach((p,i)=>{
-    const card=document.createElement("div");
-    card.className="card";
-
+  data=await res.json();
+  const el=document.getElementById("inventory");
+  el.innerHTML="";
+  data.forEach((p,i)=>{
     const gallery=(p.gallery_images||[]).filter(Boolean);
-
-    card.innerHTML=`
-      <div class="card-cover">
-        ${p.cover_image?`<img src="${p.cover_image}" onclick='openModal(["${p.cover_image}"],0)'>`:""}
-      </div>
+    el.innerHTML+=`
+    <div class="card">
+      ${p.cover_image?`<img class="cover" src="${p.cover_image}" onclick='openModal(["${p.cover_image}"],0)'>`:""}
       <div class="card-body">
-        <div class="card-title">${p.name}</div>
-        <div class="card-price">$${p.price}</div>
+        <strong>${p.name}</strong>
+        <div class="price">$${p.price}</div>
+        <div class="meta">${p.beds} bd | ${p.baths} ba | ${p.sqft} sqft | Basement: ${p.basement}</div>
         <div class="gallery-grid">
           ${gallery.map((g,j)=>`<img src="${g}" onclick='openModal(${JSON.stringify(gallery)},${j})'>`).join("")}
         </div>
-        <div class="card-actions">
-          <button onclick="editProperty(${i})">Edit</button>
-          <button onclick="deleteProperty(${p.id})">Delete</button>
+        <div class="actions">
+          <button onclick="edit(${i})">Edit</button>
+          <button onclick="del(${p.id})">Delete</button>
         </div>
-      </div>`;
-    list.appendChild(card);
+      </div>
+    </div>`;
   });
 }
 
-async function deleteProperty(id){
-  if(confirm("Delete property?")){
-    await fetch(`${API}/${id}`,{method:"DELETE"});
-    loadProperties();
-  }
-}
-
-function editProperty(i){
-  const p=properties[i];
+function edit(i){
+  removedGallery=[]; removeCover=false;
+  const p=data[i];
   propertyId.value=p.id;
   name.value=p.name;
   price.value=p.price;
   status.value=p.status;
+  beds.value=p.beds;
+  baths.value=p.baths;
+  sqft.value=p.sqft;
+  basement.value=p.basement;
   description.value=p.description;
 
   coverPreview.innerHTML=p.cover_image?`
-    <div class="preview"><img src="${p.cover_image}"></div>`:"";
+    <div class="preview">
+      <img src="${p.cover_image}">
+      <button class="remove" onclick="removeCover=true;this.parentElement.remove()">X</button>
+    </div>`:"";
 
-  galleryPreview.innerHTML=(p.gallery_images||[]).filter(Boolean)
-    .map(g=>`<div class="preview"><img src="${g}"></div>`).join("");
+  galleryPreview.innerHTML=(p.gallery_images||[]).filter(Boolean).map(g=>`
+    <div class="preview">
+      <img src="${g}">
+      <button class="remove" onclick='removedGallery.push("${g}");this.parentElement.remove()'>X</button>
+    </div>`).join("");
+}
+
+async function del(id){
+  if(confirm("Delete property?")){
+    await fetch(`${API}/${id}`,{method:"DELETE"});
+    load();
+  }
 }
 
 propertyForm.onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData();
-  ["name","price","status","description"].forEach(id=>fd.append(id,window[id].value));
+  ["name","price","status","beds","baths","sqft","basement","description"]
+    .forEach(k=>fd.append(k,window[k].value));
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
+  if(removeCover) fd.append("removeCover","true");
+  removedGallery.forEach(g=>fd.append("removeGallery",g));
+
   const id=propertyId.value;
   await fetch(id?`${API}/${id}`:API,{method:id?"PUT":"POST",body:fd});
   propertyForm.reset();
   coverPreview.innerHTML=galleryPreview.innerHTML="";
-  loadProperties();
+  load();
 };
 
-loadProperties();
+load();
 </script>
 </body>
 </html>
