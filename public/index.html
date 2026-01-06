@@ -75,7 +75,6 @@ button:hover{background:#a61f1f}
 }
 .preview{
   position:relative;
-  cursor:grab;
 }
 .preview.dragging{opacity:.4}
 .preview img{
@@ -84,6 +83,7 @@ button:hover{background:#a61f1f}
   object-fit:cover;
   border-radius:8px;
   border:1px solid var(--border);
+  cursor:pointer;
 }
 .preview .remove{
   position:absolute;
@@ -108,8 +108,6 @@ button:hover{background:#a61f1f}
   border-radius:14px;
   overflow:hidden;
 }
-
-/* COVER FIX */
 .card .cover-wrap{
   height:190px;
   background:#000;
@@ -123,11 +121,9 @@ button:hover{background:#a61f1f}
   object-fit:contain;
   cursor:pointer;
 }
-
 .card-body{padding:16px}
 .price{color:var(--red);font-weight:bold;margin:6px 0}
 .meta{font-size:13px;opacity:.85;margin-bottom:6px}
-
 .gallery-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -140,7 +136,6 @@ button:hover{background:#a61f1f}
   border-radius:6px;
   cursor:pointer;
 }
-
 .actions{
   display:flex;
   gap:10px;
@@ -227,14 +222,14 @@ button:hover{background:#a61f1f}
 <script>
 const API="https://charged-up-properties-backend.onrender.com/api/properties";
 let properties=[], modalImgs=[], modalIndex=0;
-let galleryOrder=[];
 
 const modal=document.getElementById("modal");
 const modalImg=document.getElementById("modalImg");
 
 /* MODAL */
 function openModal(arr,i){
-  modalImgs=arr; modalIndex=i;
+  modalImgs=arr;
+  modalIndex=i;
   modalImg.src=arr[i];
   modal.style.display="flex";
 }
@@ -246,20 +241,30 @@ function nav(d){
   modalImg.src=modalImgs[modalIndex];
 }
 
-/* DRAG REORDER */
+/* DRAG (gallery only, click-safe) */
 function enableDrag(container){
   let dragEl=null;
   container.querySelectorAll(".preview").forEach(el=>{
     el.draggable=true;
-    el.ondragstart=()=>{dragEl=el; el.classList.add("dragging");};
-    el.ondragend=()=>el.classList.remove("dragging");
-    el.ondragover=e=>e.preventDefault();
-    el.ondrop=e=>{
+
+    el.addEventListener("dragstart",e=>{
+      dragEl=el;
+      el.classList.add("dragging");
+    });
+
+    el.addEventListener("dragend",()=>{
+      dragEl=null;
+      el.classList.remove("dragging");
+    });
+
+    el.addEventListener("dragover",e=>e.preventDefault());
+
+    el.addEventListener("drop",e=>{
       e.preventDefault();
       if(dragEl && dragEl!==el){
         container.insertBefore(dragEl, el.nextSibling);
       }
-    };
+    });
   });
 }
 
@@ -269,7 +274,6 @@ function resetForm(){
   propertyId.value="";
   coverPreview.innerHTML="";
   galleryPreview.innerHTML="";
-  galleryOrder=[];
 }
 
 /* LOAD */
@@ -306,18 +310,32 @@ async function load(){
 function edit(id){
   const p=properties.find(x=>x.id===id);
   propertyId.value=id;
+
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>document.getElementById(k).value=p[k]||"");
 
-  galleryPreview.innerHTML="";
-  galleryOrder=[...(p.gallery_images||[])];
-
-  galleryOrder.forEach(g=>{
-    galleryPreview.innerHTML+=`
-      <div class="preview" data-url="${g}">
-        <img src="${g}">
+  /* COVER */
+  coverPreview.innerHTML="";
+  if(p.cover_image){
+    coverPreview.innerHTML=`
+      <div class="preview">
+        <img src="${p.cover_image}" onclick='openModal(["${p.cover_image}"],0)'>
         <button class="remove" onclick="this.parentElement.remove()">X</button>
       </div>`;
+  }
+
+  /* GALLERY */
+  galleryPreview.innerHTML="";
+  (p.gallery_images||[]).filter(Boolean).forEach(g=>{
+    const div=document.createElement("div");
+    div.className="preview";
+    div.dataset.url=g;
+    div.innerHTML=`
+      <img src="${g}">
+      <button class="remove">X</button>`;
+    div.querySelector("img").onclick=()=>openModal(p.gallery_images, p.gallery_images.indexOf(g));
+    div.querySelector(".remove").onclick=()=>div.remove();
+    galleryPreview.appendChild(div);
   });
 
   enableDrag(galleryPreview);
@@ -335,6 +353,7 @@ async function del(id){
 propertyForm.onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData();
+
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>fd.append(k,document.getElementById(k).value));
 
@@ -343,7 +362,6 @@ propertyForm.onsubmit=async e=>{
   [...galleryPreview.children].forEach(p=>{
     if(p.dataset.url) fd.append("galleryImages",p.dataset.url);
   });
-
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
 
   const id=propertyId.value;
