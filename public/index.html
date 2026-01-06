@@ -12,16 +12,13 @@
   --border:#2b2b2b;
   --text:#ffffff;
 }
-
 *{box-sizing:border-box}
-
 body{
   margin:0;
   background:var(--black);
   color:var(--text);
   font-family:Arial,Helvetica,sans-serif;
 }
-
 header{
   background:var(--red);
   padding:22px;
@@ -29,13 +26,11 @@ header{
   font-size:26px;
   font-weight:bold;
 }
-
 .container{
   max-width:1500px;
   margin:auto;
   padding:30px 20px 60px;
 }
-
 form{
   background:var(--card);
   padding:25px;
@@ -43,18 +38,12 @@ form{
   margin-bottom:40px;
   box-shadow:0 20px 40px rgba(0,0,0,.6);
 }
-
 .grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
   gap:15px;
 }
-
-label{
-  font-size:13px;
-  opacity:.9;
-}
-
+label{font-size:13px;opacity:.9}
 input,textarea,select{
   width:100%;
   padding:10px;
@@ -64,9 +53,7 @@ input,textarea,select{
   border:1px solid var(--border);
   border-radius:6px;
 }
-
 textarea{min-height:100px}
-
 button{
   background:var(--red);
   border:none;
@@ -75,20 +62,16 @@ button{
   border-radius:6px;
   cursor:pointer;
 }
-
 button:hover{background:#a61f1f}
-
 .preview-row{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
   margin-top:10px;
 }
-
 .preview{
   position:relative;
 }
-
 .preview img{
   width:140px;
   height:100px;
@@ -97,9 +80,7 @@ button:hover{background:#a61f1f}
   border:1px solid var(--border);
   cursor:pointer;
 }
-
 .preview.dragging{opacity:.4}
-
 .preview .remove{
   position:absolute;
   top:-6px;
@@ -111,38 +92,30 @@ button:hover{background:#a61f1f}
   color:#fff;
   cursor:pointer;
 }
-
 .inventory-grid{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
   gap:25px;
 }
-
 .card{
   background:var(--card);
   border-radius:14px;
   overflow:hidden;
 }
-
 .card img.cover{
   width:100%;
   height:190px;
   object-fit:cover;
   cursor:pointer;
 }
-
 .card-body{padding:16px}
-
 .price{color:var(--red);font-weight:bold;margin:6px 0}
-
 .meta{font-size:13px;opacity:.85;margin-bottom:8px}
-
 .gallery-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:6px;
 }
-
 .gallery-grid img{
   width:100%;
   height:70px;
@@ -150,14 +123,11 @@ button:hover{background:#a61f1f}
   border-radius:6px;
   cursor:pointer;
 }
-
 .actions{
   display:flex;
   gap:10px;
   margin-top:14px;
 }
-
-/* MODAL */
 #modal{
   display:none;
   position:fixed;
@@ -167,19 +137,16 @@ button:hover{background:#a61f1f}
   align-items:center;
   justify-content:center;
 }
-
 #modal img{
   max-width:96%;
   max-height:96%;
 }
-
 #modal span{
   position:absolute;
   font-size:44px;
   cursor:pointer;
   user-select:none;
 }
-
 .close{top:20px;right:30px}
 .prev{left:20px}
 .next{right:20px}
@@ -197,7 +164,15 @@ button:hover{background:#a61f1f}
 <div class="grid">
   <div><label>Name<input id="name" required></label></div>
   <div><label>Price<input id="price" type="number"></label></div>
-  <div><label>Status<input id="status"></label></div>
+  <div>
+    <label>Status
+      <select id="status">
+        <option value="For Sale">For Sale</option>
+        <option value="Pending">Pending</option>
+        <option value="Sold">Sold</option>
+      </select>
+    </label>
+  </div>
   <div><label>Address<input id="address"></label></div>
   <div><label>Beds<input id="beds" type="number"></label></div>
   <div><label>Baths<input id="baths" type="number" step="0.5"></label></div>
@@ -231,7 +206,7 @@ button:hover{background:#a61f1f}
 <script>
 const API="https://charged-up-properties-backend.onrender.com/api/properties";
 let properties=[], modalImgs=[], modalIndex=0;
-let removedGallery=[], removeCover=false, galleryOrder=[];
+let removedGallery=[], removeCover=false;
 
 const modal=document.getElementById("modal");
 const modalImg=document.getElementById("modalImg");
@@ -261,8 +236,8 @@ async function load(){
       <div class="card-body">
         <strong>${p.name}</strong>
         <div class="price">$${p.price}</div>
-        <div class="meta">${p.address}</div>
-        <div class="meta">${p.beds} bd | ${p.baths} ba | ${p.sqft} sqft | ${p.type}</div>
+        <div class="meta">${p.status} • ${p.address}</div>
+        <div class="meta">${p.beds} bd | ${p.baths} ba | ${p.sqft} sqft | Lot: ${p.lot_size}</div>
         <div class="gallery-grid">
           ${gallery.map((g,j)=>`<img src="${g}" onclick='openModal(${JSON.stringify(gallery)},${j})'>`).join("")}
         </div>
@@ -275,31 +250,22 @@ async function load(){
   });
 }
 
-function enableDrag(){
-  const items=[...galleryPreview.children];
-  items.forEach(el=>{
-    el.draggable=true;
-    el.ondragstart=()=>el.classList.add("dragging");
-    el.ondragend=()=>el.classList.remove("dragging");
-  });
-  galleryPreview.ondragover=e=>{
-    e.preventDefault();
-    const dragging=document.querySelector(".dragging");
-    const after=[...galleryPreview.children].find(c=>{
-      const box=c.getBoundingClientRect();
-      return e.clientX<box.left+box.width/2;
-    });
-    if(after) galleryPreview.insertBefore(dragging,after);
-    else galleryPreview.appendChild(dragging);
-  };
-}
-
 function edit(i){
   const p=properties[i];
   removedGallery=[]; removeCover=false;
   propertyId.value=p.id;
-  ["name","price","status","address","beds","baths","sqft","type","lot_size","basement","description"]
-    .forEach(k=>window[k].value=p[k]||"");
+
+  name.value=p.name||"";
+  price.value=p.price||"";
+  status.value=p.status||"For Sale";
+  address.value=p.address||"";
+  beds.value=p.beds||"";
+  baths.value=p.baths||"";
+  sqft.value=p.sqft||"";
+  type.value=p.type||"";
+  lot_size.value=p.lot_size||"";
+  basement.value=p.basement||"";
+  description.value=p.description||"";
 
   coverPreview.innerHTML=p.cover_image?`
     <div class="preview">
@@ -312,7 +278,6 @@ function edit(i){
       <img src="${g}" onclick='openModal(${JSON.stringify(p.gallery_images)},${p.gallery_images.indexOf(g)})'>
       <button class="remove" onclick='removedGallery.push("${g}");this.parentElement.remove()'>X</button>
     </div>`).join("");
-  enableDrag();
 }
 
 async function del(id){
@@ -331,7 +296,6 @@ propertyForm.onsubmit=async e=>{
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
   if(removeCover) fd.append("removeCover","true");
   removedGallery.forEach(g=>fd.append("removeGallery",g));
-  [...galleryPreview.children].forEach(c=>fd.append("galleryOrder",c.dataset.url));
   const id=propertyId.value;
   await fetch(id?`${API}/${id}`:API,{method:id?"PUT":"POST",body:fd});
   propertyForm.reset();
