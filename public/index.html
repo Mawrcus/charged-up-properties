@@ -31,6 +31,8 @@ header{
   margin:auto;
   padding:30px 20px 60px;
 }
+
+/* FORM */
 form{
   background:var(--card);
   padding:25px;
@@ -64,6 +66,7 @@ button{
 }
 button:hover{background:#a61f1f}
 
+/* PREVIEWS */
 .preview-row{
   display:flex;
   gap:10px;
@@ -72,14 +75,15 @@ button:hover{background:#a61f1f}
 }
 .preview{
   position:relative;
+  cursor:grab;
 }
+.preview.dragging{opacity:.4}
 .preview img{
   width:140px;
   height:100px;
   object-fit:cover;
   border-radius:8px;
   border:1px solid var(--border);
-  cursor:pointer;
 }
 .preview .remove{
   position:absolute;
@@ -93,6 +97,7 @@ button:hover{background:#a61f1f}
   cursor:pointer;
 }
 
+/* INVENTORY */
 .inventory-grid{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
@@ -103,12 +108,22 @@ button:hover{background:#a61f1f}
   border-radius:14px;
   overflow:hidden;
 }
+
+/* COVER FIX */
+.card .cover-wrap{
+  height:190px;
+  background:#000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 .card img.cover{
-  width:100%;
-  height:180px;
-  object-fit:cover;
+  max-height:100%;
+  max-width:100%;
+  object-fit:contain;
   cursor:pointer;
 }
+
 .card-body{padding:16px}
 .price{color:var(--red);font-weight:bold;margin:6px 0}
 .meta{font-size:13px;opacity:.85;margin-bottom:6px}
@@ -132,6 +147,7 @@ button:hover{background:#a61f1f}
   margin-top:12px;
 }
 
+/* MODAL */
 #modal{
   display:none;
   position:fixed;
@@ -171,9 +187,9 @@ button:hover{background:#a61f1f}
   <div>
     <label>Status
       <select id="status">
-        <option value="For Sale">For Sale</option>
-        <option value="Pending">Pending</option>
-        <option value="Sold">Sold</option>
+        <option>For Sale</option>
+        <option>Pending</option>
+        <option>Sold</option>
       </select>
     </label>
   </div>
@@ -191,7 +207,7 @@ button:hover{background:#a61f1f}
 <label>Cover Image<input type="file" id="coverImage"></label>
 <div id="coverPreview" class="preview-row"></div>
 
-<label>Gallery Images<input type="file" id="galleryImages" multiple></label>
+<label>Gallery Images (drag to reorder)<input type="file" id="galleryImages" multiple></label>
 <div id="galleryPreview" class="preview-row"></div>
 
 <button type="submit">Save Property</button>
@@ -211,11 +227,12 @@ button:hover{background:#a61f1f}
 <script>
 const API="https://charged-up-properties-backend.onrender.com/api/properties";
 let properties=[], modalImgs=[], modalIndex=0;
-let removedGallery=[], removeCover=false;
+let galleryOrder=[];
 
 const modal=document.getElementById("modal");
 const modalImg=document.getElementById("modalImg");
 
+/* MODAL */
 function openModal(arr,i){
   modalImgs=arr; modalIndex=i;
   modalImg.src=arr[i];
@@ -229,71 +246,84 @@ function nav(d){
   modalImg.src=modalImgs[modalIndex];
 }
 
+/* DRAG REORDER */
+function enableDrag(container){
+  let dragEl=null;
+  container.querySelectorAll(".preview").forEach(el=>{
+    el.draggable=true;
+    el.ondragstart=()=>{dragEl=el; el.classList.add("dragging");};
+    el.ondragend=()=>el.classList.remove("dragging");
+    el.ondragover=e=>e.preventDefault();
+    el.ondrop=e=>{
+      e.preventDefault();
+      if(dragEl && dragEl!==el){
+        container.insertBefore(dragEl, el.nextSibling);
+      }
+    };
+  });
+}
+
+/* RESET */
 function resetForm(){
   propertyForm.reset();
   propertyId.value="";
   coverPreview.innerHTML="";
   galleryPreview.innerHTML="";
-  removedGallery=[];
-  removeCover=false;
+  galleryOrder=[];
 }
 
+/* LOAD */
 async function load(){
   const res=await fetch(API);
   properties=await res.json();
   inventory.innerHTML="";
-  properties.forEach((p,i)=>{
+  properties.forEach(p=>{
     const gallery=(p.gallery_images||[]).filter(Boolean);
     inventory.innerHTML+=`
     <div class="card">
-      ${p.cover_image?`<img class="cover" src="${p.cover_image}" onclick='openModal(["${p.cover_image}"],0)'>`:""}
+      ${p.cover_image?`
+      <div class="cover-wrap">
+        <img class="cover" src="${p.cover_image}" onclick='openModal(["${p.cover_image}"],0)'>
+      </div>`:""}
       <div class="card-body">
         <strong>${p.name}</strong>
         <div class="price">$${p.price||""}</div>
         <div class="meta">${p.status||""} • ${p.address||""}</div>
         <div class="meta">${p.beds||0} bd | ${p.baths||0} ba | ${p.sqft||0} sqft | Lot: ${p.lot||""}</div>
         <div class="gallery-grid">
-          ${gallery.map((g,j)=>`<img src="${g}" onclick='openModal(${JSON.stringify(gallery)},${j})'>`).join("")}
+          ${gallery.map((g,i)=>`<img src="${g}" onclick='openModal(${JSON.stringify(gallery)},${i})'>`).join("")}
         </div>
         <div class="actions">
-          <button onclick="edit(${i})">Edit</button>
-          <button onclick="del(${p.id})">Delete</button>
+          <button onclick='edit(${p.id})'>Edit</button>
+          <button onclick='del(${p.id})'>Delete</button>
         </div>
       </div>
     </div>`;
   });
 }
 
-function edit(i){
-  const p=properties[i];
-  removedGallery=[]; removeCover=false;
-  propertyId.value=p.id;
+/* EDIT */
+function edit(id){
+  const p=properties.find(x=>x.id===id);
+  propertyId.value=id;
+  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
+    .forEach(k=>document.getElementById(k).value=p[k]||"");
 
-  name.value=p.name||"";
-  price.value=p.price||"";
-  status.value=p.status||"For Sale";
-  address.value=p.address||"";
-  beds.value=p.beds||"";
-  baths.value=p.baths||"";
-  sqft.value=p.sqft||"";
-  type.value=p.type||"";
-  lot.value=p.lot||"";
-  basement.value=p.basement||"";
-  description.value=p.description||"";
+  galleryPreview.innerHTML="";
+  galleryOrder=[...(p.gallery_images||[])];
 
-  coverPreview.innerHTML=p.cover_image?`
-    <div class="preview">
-      <img src="${p.cover_image}" onclick='openModal(["${p.cover_image}"],0)'>
-      <button class="remove" onclick="removeCover=true;this.parentElement.remove()">X</button>
-    </div>`:"";
+  galleryOrder.forEach(g=>{
+    galleryPreview.innerHTML+=`
+      <div class="preview" data-url="${g}">
+        <img src="${g}">
+        <button class="remove" onclick="this.parentElement.remove()">X</button>
+      </div>`;
+  });
 
-  galleryPreview.innerHTML=(p.gallery_images||[]).filter(Boolean).map(g=>`
-    <div class="preview">
-      <img src="${g}" onclick='openModal(${JSON.stringify(p.gallery_images)},${p.gallery_images.indexOf(g)})'>
-      <button class="remove" onclick='removedGallery.push("${g}");this.parentElement.remove()'>X</button>
-    </div>`).join("");
+  enableDrag(galleryPreview);
 }
 
+/* DELETE */
 async function del(id){
   if(confirm("Delete property?")){
     await fetch(`${API}/${id}`,{method:"DELETE"});
@@ -301,30 +331,20 @@ async function del(id){
   }
 }
 
+/* SUBMIT */
 propertyForm.onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData();
-  [
-  "name",
-  "price",
-  "status",
-  "address",
-  "beds",
-  "baths",
-  "sqft",
-  "type",
-  "lot",
-  "basement",
-  "description"
-].forEach(id => {
-  const el = document.getElementById(id);
-  fd.append(id, el ? el.value : "");
-});
+  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
+    .forEach(k=>fd.append(k,document.getElementById(k).value));
 
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
+
+  [...galleryPreview.children].forEach(p=>{
+    if(p.dataset.url) fd.append("galleryImages",p.dataset.url);
+  });
+
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
-  if(removeCover) fd.append("removeCover","true");
-  removedGallery.forEach(g=>fd.append("removeGallery",g));
 
   const id=propertyId.value;
   await fetch(id?`${API}/${id}`:API,{method:id?"PUT":"POST",body:fd});
