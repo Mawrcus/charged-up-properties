@@ -63,6 +63,7 @@ button{
   cursor:pointer;
 }
 button:hover{background:#a61f1f}
+
 .preview-row{
   display:flex;
   gap:10px;
@@ -80,7 +81,6 @@ button:hover{background:#a61f1f}
   border:1px solid var(--border);
   cursor:pointer;
 }
-.preview.dragging{opacity:.4}
 .preview .remove{
   position:absolute;
   top:-6px;
@@ -92,6 +92,7 @@ button:hover{background:#a61f1f}
   color:#fff;
   cursor:pointer;
 }
+
 .inventory-grid{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
@@ -104,13 +105,14 @@ button:hover{background:#a61f1f}
 }
 .card img.cover{
   width:100%;
-  height:190px;
+  height:180px;
   object-fit:cover;
   cursor:pointer;
 }
 .card-body{padding:16px}
 .price{color:var(--red);font-weight:bold;margin:6px 0}
-.meta{font-size:13px;opacity:.85;margin-bottom:8px}
+.meta{font-size:13px;opacity:.85;margin-bottom:6px}
+
 .gallery-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -123,16 +125,18 @@ button:hover{background:#a61f1f}
   border-radius:6px;
   cursor:pointer;
 }
+
 .actions{
   display:flex;
   gap:10px;
-  margin-top:14px;
+  margin-top:12px;
 }
+
 #modal{
   display:none;
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,.96);
+  background:rgba(0,0,0,.95);
   z-index:999;
   align-items:center;
   justify-content:center;
@@ -178,7 +182,7 @@ button:hover{background:#a61f1f}
   <div><label>Baths<input id="baths" type="number" step="0.5"></label></div>
   <div><label>Sq Ft<input id="sqft" type="number"></label></div>
   <div><label>Type<input id="type"></label></div>
-  <div><label>Lot Size<input id="lot_size"></label></div>
+  <div><label>Lot Size<input id="lot"></label></div>
   <div><label>Basement<input id="basement"></label></div>
 </div>
 
@@ -191,6 +195,7 @@ button:hover{background:#a61f1f}
 <div id="galleryPreview" class="preview-row"></div>
 
 <button type="submit">Save Property</button>
+<button type="button" onclick="resetForm()" style="margin-left:10px;background:#333">Add New</button>
 </form>
 
 <div id="inventory" class="inventory-grid"></div>
@@ -224,6 +229,15 @@ function nav(d){
   modalImg.src=modalImgs[modalIndex];
 }
 
+function resetForm(){
+  propertyForm.reset();
+  propertyId.value="";
+  coverPreview.innerHTML="";
+  galleryPreview.innerHTML="";
+  removedGallery=[];
+  removeCover=false;
+}
+
 async function load(){
   const res=await fetch(API);
   properties=await res.json();
@@ -235,9 +249,9 @@ async function load(){
       ${p.cover_image?`<img class="cover" src="${p.cover_image}" onclick='openModal(["${p.cover_image}"],0)'>`:""}
       <div class="card-body">
         <strong>${p.name}</strong>
-        <div class="price">$${p.price}</div>
-        <div class="meta">${p.status} • ${p.address}</div>
-        <div class="meta">${p.beds} bd | ${p.baths} ba | ${p.sqft} sqft | Lot: ${p.lot_size}</div>
+        <div class="price">$${p.price||""}</div>
+        <div class="meta">${p.status||""} • ${p.address||""}</div>
+        <div class="meta">${p.beds||0} bd | ${p.baths||0} ba | ${p.sqft||0} sqft | Lot: ${p.lot||""}</div>
         <div class="gallery-grid">
           ${gallery.map((g,j)=>`<img src="${g}" onclick='openModal(${JSON.stringify(gallery)},${j})'>`).join("")}
         </div>
@@ -263,7 +277,7 @@ function edit(i){
   baths.value=p.baths||"";
   sqft.value=p.sqft||"";
   type.value=p.type||"";
-  lot_size.value=p.lot_size||"";
+  lot.value=p.lot||"";
   basement.value=p.basement||"";
   description.value=p.description||"";
 
@@ -274,7 +288,7 @@ function edit(i){
     </div>`:"";
 
   galleryPreview.innerHTML=(p.gallery_images||[]).filter(Boolean).map(g=>`
-    <div class="preview" data-url="${g}">
+    <div class="preview">
       <img src="${g}" onclick='openModal(${JSON.stringify(p.gallery_images)},${p.gallery_images.indexOf(g)})'>
       <button class="remove" onclick='removedGallery.push("${g}");this.parentElement.remove()'>X</button>
     </div>`).join("");
@@ -290,16 +304,16 @@ async function del(id){
 propertyForm.onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData();
-  ["name","price","status","address","beds","baths","sqft","type","lot_size","basement","description"]
+  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>fd.append(k,window[k].value));
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
   if(removeCover) fd.append("removeCover","true");
   removedGallery.forEach(g=>fd.append("removeGallery",g));
+
   const id=propertyId.value;
   await fetch(id?`${API}/${id}`:API,{method:id?"PUT":"POST",body:fd});
-  propertyForm.reset();
-  coverPreview.innerHTML=galleryPreview.innerHTML="";
+  resetForm();
   load();
 };
 
