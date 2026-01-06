@@ -15,7 +15,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // Supabase client
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // Upload file to Supabase and get public URL
 async function uploadToSupabase(file) {
