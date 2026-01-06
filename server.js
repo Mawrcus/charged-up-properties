@@ -1,122 +1,194 @@
-// server.js
 import express from "express";
 import cors from "cors";
 import multer from "multer";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-console.log("SUPABASE_URL =", process.env.SUPABASE_URL);
-console.log("SUPABASE_KEY =", process.env.SUPABASE_KEY ? "FOUND" : "MISSING");
-dotenv.config();
+
+// ---------------- Setup ----------------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Multer memory storage
-const storage = multer.memoryStorage();
+// Serve local uploads if needed (optional)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Multer setup for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + "-" + file.originalname.replace(/\s/g, "_");
+    cb(null, uniqueName);
+  }
+});
 const upload = multer({ storage });
 
-// Supabase client
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// ---------------- Supabase client ----------------
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-// Upload file to Supabase and get public URL
-async function uploadToSupabase(file) {
-  const fileName = Date.now() + "-" + file.originalname.replace(/\s/g, "_");
-  const { data, error } = await supabase.storage
-    .from("property-images")
-    .upload(fileName, file.buffer, { upsert: false });
+console.log("SUPABASE_URL =", supabaseUrl);
+console.log("SUPABASE_KEY =", supabaseKey ? "FOUND" : "MISSING");
 
-  if (error) throw error;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const { publicUrl, error: urlError } = supabase.storage
-    .from("property-images")
-    .getPublicUrl(fileName);
+// ---------------- Routes ----------------
 
-  if (urlError) throw urlError;
-  return publicUrl;
-}
+// GET all properties
+app.get("/api/properties", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("properties").select("*");
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-// In-memory DB for demo
-let properties = [];
-let idCounter = 1;
-
-// CREATE property
+// POST new property
 app.post("/api/properties", upload.fields([
   { name: "coverImage", maxCount: 1 },
-  { name: "galleryImages" }
+  { name: "galleryImages", maxCount: 20 }
 ]), async (req, res) => {
   try {
-    const { name, price, status, address, beds, baths, sqft, type, lot, basement, description } = req.body;
+    const {
+      name, price, status, address, beds, baths, sqft,
+      type, lot, basement, description
+    } = req.body;
 
-    let cover_image = null;
-    if (req.files.coverImage) cover_image = await uploadToSupabase(req.files.coverImage[0]);
+    // --- Upload Cover Image ---
+    let coverUrl = null;
+    if (req.files.coverImage && req.files.coverImage.length > 0) {
+      const file = req.files.coverImage[0];
+      const fileContent = fs.readFileSync(file.path);
+      const { error: coverError } = await supabase
+        .storage
+        .from("properties")
+        .upload(file.filename, fileContent, { upsert: true });
+      if (coverError) throw coverError;
+      coverUrl = supabase.storage.from("properties").getPublicUrl(file.filename).publicUrl;
+      fs.unlinkSync(file.path);
+    }
 
-    let gallery_images = [];
+    // --- Upload Gallery Images ---
+    let galleryUrls = [];
     if (req.files.galleryImages) {
-      for (const file of req.files.galleryImages) {
-        gallery_images.push(await uploadToSupabase(file));
+      for (let file of req.files.galleryImages) {
+        const fileContent = fs.readFileSync(file.path);
+        const { error: galleryError } = await supabase
+          .storage
+          .from("properties")
+          .upload(file.filename, fileContent, { upsert: true });
+        if (galleryError) throw galleryError;
+        galleryUrls.push(supabase.storage.from("properties").getPublicUrl(file.filename).publicUrl);
+        fs.unlinkSync(file.path);
       }
     }
 
-    const property = {
-      id: idCounter++,
-      name, price, status, address, beds, baths, sqft, type, lot, basement, description,
-      cover_image, gallery_images
-    };
+    // --- Insert into Supabase table ---
+    const { data, error } = await supabase
+      .from("properties")
+      .insert([{
+        name, price, status, address, beds, baths, sqft,
+        type, lot, basement, description,
+        cover_image: coverUrl,
+        gallery_images: galleryUrls
+      }])
+      .select();
 
-    properties.push(property);
-    res.json(property);
+    if (error) throw error;
+    res.json(data[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// READ all
-app.get("/api/properties", (req, res) => res.json(properties));
-
-// UPDATE
+// PUT update property
 app.put("/api/properties/:id", upload.fields([
   { name: "coverImage", maxCount: 1 },
-  { name: "galleryImages" }
+  { name: "galleryImages", maxCount: 20 }
 ]), async (req, res) => {
   try {
-    const property = properties.find(p => p.id == req.params.id);
-    if (!property) return res.status(404).json({ error: "Property not found" });
+    const propertyId = req.params.id;
+    const {
+      name, price, status, address, beds, baths, sqft,
+      type, lot, basement, description, cover_image, gallery_images
+    } = req.body;
 
-    const { name, price, status, address, beds, baths, sqft, type, lot, basement, description, removeGallery } = req.body;
+    // Parse existing gallery if sent from frontend
+    let existingGallery = gallery_images ? JSON.parse(gallery_images) : [];
 
-    property.name = name; property.price = price; property.status = status;
-    property.address = address; property.beds = beds; property.baths = baths;
-    property.sqft = sqft; property.type = type; property.lot = lot;
-    property.basement = basement; property.description = description;
+    let coverUrl = cover_image || null;
+    let galleryUrls = existingGallery;
 
-    if (req.files.coverImage) property.cover_image = await uploadToSupabase(req.files.coverImage[0]);
+    // Upload new cover image if present
+    if (req.files.coverImage && req.files.coverImage.length > 0) {
+      const file = req.files.coverImage[0];
+      const fileContent = fs.readFileSync(file.path);
+      const { error: coverError } = await supabase
+        .storage
+        .from("properties")
+        .upload(file.filename, fileContent, { upsert: true });
+      if (coverError) throw coverError;
+      coverUrl = supabase.storage.from("properties").getPublicUrl(file.filename).publicUrl;
+      fs.unlinkSync(file.path);
+    }
 
+    // Upload new gallery images if any
     if (req.files.galleryImages) {
-      for (const file of req.files.galleryImages) {
-        property.gallery_images.push(await uploadToSupabase(file));
+      for (let file of req.files.galleryImages) {
+        const fileContent = fs.readFileSync(file.path);
+        const { error: galleryError } = await supabase
+          .storage
+          .from("properties")
+          .upload(file.filename, fileContent, { upsert: true });
+        if (galleryError) throw galleryError;
+        galleryUrls.push(supabase.storage.from("properties").getPublicUrl(file.filename).publicUrl);
+        fs.unlinkSync(file.path);
       }
     }
 
-    if (removeGallery) {
-      const toRemove = Array.isArray(removeGallery) ? removeGallery : [removeGallery];
-      property.gallery_images = property.gallery_images.filter(img => !toRemove.includes(img));
-    }
+    // Update Supabase table
+    const { data, error } = await supabase
+      .from("properties")
+      .update({
+        name, price, status, address, beds, baths, sqft,
+        type, lot, basement, description,
+        cover_image: coverUrl,
+        gallery_images: galleryUrls
+      })
+      .eq("id", propertyId)
+      .select();
 
-    res.json(property);
+    if (error) throw error;
+    res.json(data[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE
-app.delete("/api/properties/:id", (req, res) => {
-  const idx = properties.findIndex(p => p.id == req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Property not found" });
-  properties.splice(idx, 1);
-  res.json({ success: true });
+// DELETE property
+app.delete("/api/properties/:id", async (req, res) => {
+  try {
+    const propertyId = req.params.id;
+    const { data, error } = await supabase.from("properties").delete().eq("id", propertyId);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Server running..."));
+// ---------------- Start server ----------------
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Backend running at http://localhost:${PORT}`);
+});
