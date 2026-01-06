@@ -4,20 +4,24 @@
 <meta charset="UTF-8">
 <title>Charged Up Properties Admin</title>
 <style>
-  body { background: #000; color: #fff; font-family: Arial; margin:0; }
-  h1 { color: #D32F2F; text-align:center; padding:20px; }
+  body { background:#000; color:#fff; font-family: Arial; margin:0; }
+  h1 { color:#D32F2F; text-align:center; padding:20px; }
   .container { width:90%; max-width:1200px; margin:auto; }
-  .property-card { border:1px solid #fff; margin:10px; padding:10px; display:flex; flex-direction:column; }
-  .property-images { display:flex; gap:5px; overflow-x:auto; }
-  .property-images img, .cover-image img { max-height:150px; object-fit:contain; cursor:pointer; }
+  form { background:#111; padding:20px; margin-bottom:20px; border-radius:10px; }
+  label { display:block; margin-top:10px; }
+  input, select, textarea { width:100%; margin:5px 0; padding:8px; background:#222; color:#fff; border:1px solid #fff; border-radius:5px; }
+  button { background:#D32F2F; color:#fff; border:none; padding:10px; cursor:pointer; margin:5px 0; border-radius:5px; }
+  button:hover { background:#b71c1c; }
+  .property-card { border:1px solid #fff; margin:10px 0; padding:10px; border-radius:5px; }
+  .property-images, #galleryPreview, #coverPreview { display:flex; gap:5px; flex-wrap:wrap; }
+  .property-images img, #galleryPreview img, #coverPreview img { height:100px; object-fit:contain; cursor:pointer; border:1px solid #fff; border-radius:5px; }
+  .preview-div { position:relative; display:inline-block; }
+  .preview-div button { position:absolute; top:0; right:0; background:red; color:#fff; padding:2px 5px; font-size:12px; border-radius:0; cursor:pointer; }
   .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); justify-content:center; align-items:center; z-index:1000; }
   .modal img { max-width:90%; max-height:90%; }
   .close { position:absolute; top:20px; right:30px; font-size:30px; color:#fff; cursor:pointer; }
   .arrow { position:absolute; top:50%; font-size:50px; color:#fff; cursor:pointer; user-select:none; }
   .prev { left:20px; } .next { right:20px; }
-  input, select, textarea { width:100%; margin:5px 0; padding:5px; background:#111; color:#fff; border:1px solid #fff; }
-  button { background:#D32F2F; color:#fff; border:none; padding:10px; cursor:pointer; margin:5px 0; }
-  button:hover { background:#b71c1c; }
 </style>
 </head>
 <body>
@@ -41,8 +45,15 @@
     <label>Lot Size:</label><input type="text" id="lot">
     <label>Basement:</label><input type="text" id="basement">
     <label>Description:</label><textarea id="description"></textarea>
-    <label>Cover Image:</label><input type="file" id="coverImage" accept="image/*">
-    <label>Gallery Images:</label><input type="file" id="galleryImages" accept="image/*" multiple>
+
+    <label>Cover Image:</label>
+    <input type="file" id="coverImage" accept="image/*">
+    <div id="coverPreview"></div>
+
+    <label>Gallery Images:</label>
+    <input type="file" id="galleryImages" accept="image/*" multiple>
+    <div id="galleryPreview"></div>
+
     <button type="submit">Save Property</button>
   </form>
 
@@ -92,12 +103,18 @@ async function loadProperties(){
   properties.forEach((p, i)=>{
     const div = document.createElement("div");
     div.className="property-card";
+
+    const galleryHTML = (p.gallery_images||[]).map((url,j)=>{
+      if(!url) return "";
+      return `<img src="${url}" data-index="${j}" data-gallery='${encodeURIComponent(JSON.stringify(p.gallery_images))}' onclick="openGallery(this)">`;
+    }).join("");
+
     div.innerHTML=`
       <div class="cover-image">
         ${p.cover_image ? `<img src="${p.cover_image}" onclick="openModal(['${p.cover_image}'],0)">` : "No Cover"}
       </div>
       <div class="property-images">
-        ${(p.gallery_images||[]).map((url,j)=>url ? `<img src="${url}" onclick="openModal(${JSON.stringify(p.gallery_images)},${j})">` : "").join("")}
+        ${galleryHTML}
       </div>
       <strong>${p.name}</strong> - $${p.price} 
       <button onclick="editProperty(${i})">Edit</button>
@@ -105,6 +122,12 @@ async function loadProperties(){
     `;
     list.appendChild(div);
   });
+}
+
+function openGallery(imgEl){
+  const images = JSON.parse(decodeURIComponent(imgEl.dataset.gallery));
+  const index = parseInt(imgEl.dataset.index);
+  openModal(images, index);
 }
 
 async function deleteProperty(id){
@@ -127,7 +150,33 @@ function editProperty(index){
   document.getElementById("lot").value = p.lot;
   document.getElementById("basement").value = p.basement;
   document.getElementById("description").value = p.description;
-  // File inputs cannot be prefilled
+
+  // Cover preview
+  const coverPreview = document.getElementById("coverPreview");
+  coverPreview.innerHTML = "";
+  if(p.cover_image){
+    const img = document.createElement("img");
+    img.src = p.cover_image; img.style.maxHeight="100px"; img.style.objectFit="contain";
+    const btn = document.createElement("button");
+    btn.textContent="Delete Cover"; btn.onclick=()=>{p.cover_image=null; coverPreview.innerHTML="";};
+    coverPreview.append(img, btn);
+  }
+
+  // Gallery preview
+  const galleryPreview = document.getElementById("galleryPreview");
+  galleryPreview.innerHTML="";
+  (p.gallery_images||[]).forEach((url, idx)=>{
+    if(!url) return;
+    const div = document.createElement("div");
+    div.className="preview-div";
+    const img = document.createElement("img");
+    img.src=url;
+    const btn = document.createElement("button");
+    btn.textContent="X";
+    btn.onclick=()=>{p.gallery_images[idx]=null; div.remove();};
+    div.append(img, btn);
+    galleryPreview.appendChild(div);
+  });
 }
 
 document.getElementById("propertyForm").onsubmit = async (e)=>{
@@ -158,6 +207,8 @@ document.getElementById("propertyForm").onsubmit = async (e)=>{
     await fetch(API_URL, { method:"POST", body: formData });
   }
   document.getElementById("propertyForm").reset();
+  document.getElementById("coverPreview").innerHTML="";
+  document.getElementById("galleryPreview").innerHTML="";
   loadProperties();
 }
 
