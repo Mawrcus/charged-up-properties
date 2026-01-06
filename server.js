@@ -49,7 +49,7 @@ app.get("/api/properties", async (req, res) => {
 });
 
 /* ===========================
-   CREATE (NO ID EVER)
+   CREATE
 =========================== */
 app.post(
   "/api/properties",
@@ -61,47 +61,53 @@ app.post(
     try {
       const body = req.body;
 
-      let coverImage = null;
-      let galleryImages = [];
+      let cover_image = null;
+      let gallery_images = [];
 
       if (req.files?.coverImage) {
-        coverImage = await uploadImage(req.files.coverImage[0]);
+        cover_image = await uploadImage(req.files.coverImage[0]);
       }
 
       if (req.files?.galleryImages) {
         for (const img of req.files.galleryImages) {
-          galleryImages.push(await uploadImage(img));
+          gallery_images.push(await uploadImage(img));
         }
       }
 
-      const { data, error } = await supabase.from("properties").insert({
-        name: body.name,
-        price: body.price,
-        status: body.status,
-        address: body.address,
-        beds: body.beds,
-        baths: body.baths,
-        sqft: body.sqft,
-        type: body.type,
-        lot: body.lot,
-        basement: body.basement,
-        description: body.description,
-        coverImage,
-        galleryImages,
-      });
+      const { data, error } = await supabase
+        .from("properties")
+        .insert([
+          {
+            name: body.name,
+            price: body.price || null,
+            status: body.status,
+            address: body.address,
+            beds: body.beds || null,
+            baths: body.baths || null,
+            sqft: body.sqft || null,
+            type: body.type,
+            lot: body.lot,
+            basement: body.basement,
+            description: body.description,
+            cover_image,
+            gallery_images,
+          },
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      res.json({ success: true, data });
+      res.json(data);
     } catch (err) {
-      console.error(err);
+      console.error("CREATE ERROR:", err);
       res.status(500).json({ error: err.message });
     }
   }
 );
 
 /* ===========================
-   UPDATE (ID REQUIRED)
+   UPDATE
 =========================== */
 app.put(
   "/api/properties/:id",
@@ -116,12 +122,12 @@ app.put(
 
       const update = {
         name: body.name,
-        price: body.price,
+        price: body.price || null,
         status: body.status,
         address: body.address,
-        beds: body.beds,
-        baths: body.baths,
-        sqft: body.sqft,
+        beds: body.beds || null,
+        baths: body.baths || null,
+        sqft: body.sqft || null,
         type: body.type,
         lot: body.lot,
         basement: body.basement,
@@ -129,7 +135,7 @@ app.put(
       };
 
       if (req.files?.coverImage) {
-        update.coverImage = await uploadImage(req.files.coverImage[0]);
+        update.cover_image = await uploadImage(req.files.coverImage[0]);
       }
 
       if (req.files?.galleryImages) {
@@ -137,19 +143,21 @@ app.put(
         for (const img of req.files.galleryImages) {
           imgs.push(await uploadImage(img));
         }
-        update.galleryImages = imgs;
+        update.gallery_images = imgs;
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("properties")
         .update(update)
-        .eq("id", id);
+        .eq("id", id)
+        .select()
+        .single();
 
       if (error) throw error;
 
-      res.json({ success: true });
+      res.json(data);
     } catch (err) {
-      console.error(err);
+      console.error("UPDATE ERROR:", err);
       res.status(500).json({ error: err.message });
     }
   }
