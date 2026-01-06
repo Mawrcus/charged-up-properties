@@ -9,8 +9,8 @@
   .container { width:90%; max-width:1200px; margin:auto; }
   .property-card { border:1px solid #fff; margin:10px; padding:10px; display:flex; flex-direction:column; }
   .property-images { display:flex; gap:5px; overflow-x:auto; }
-  .property-images img, .cover-image img { max-height:150px; object-fit:cover; cursor:pointer; }
-  .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); justify-content:center; align-items:center; z-index:1000; }
+  .property-images img, .cover-image img { max-height:150px; object-fit:contain; cursor:pointer; }
+  .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); justify-content:center; align-items:center; z-index:1000; }
   .modal img { max-width:90%; max-height:90%; }
   .close { position:absolute; top:20px; right:30px; font-size:30px; color:#fff; cursor:pointer; }
   .arrow { position:absolute; top:50%; font-size:50px; color:#fff; cursor:pointer; user-select:none; }
@@ -97,7 +97,7 @@ async function loadProperties(){
         ${p.cover_image ? `<img src="${p.cover_image}" onclick="openModal(['${p.cover_image}'],0)">` : "No Cover"}
       </div>
       <div class="property-images">
-        ${(p.gallery_images||[]).map((url,j)=>`<img src="${url}" onclick="openModal(${JSON.stringify(p.gallery_images)},${j})">`).join("")}
+        ${(p.gallery_images||[]).map((url,j)=>url ? `<img src="${url}" onclick="openModal(${JSON.stringify(p.gallery_images)},${j})">` : "").join("")}
       </div>
       <strong>${p.name}</strong> - $${p.price} 
       <button onclick="editProperty(${i})">Edit</button>
@@ -127,7 +127,7 @@ function editProperty(index){
   document.getElementById("lot").value = p.lot;
   document.getElementById("basement").value = p.basement;
   document.getElementById("description").value = p.description;
-  // Note: file inputs cannot be prefilled due to browser security
+  // File inputs cannot be prefilled
 }
 
 document.getElementById("propertyForm").onsubmit = async (e)=>{

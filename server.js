@@ -13,7 +13,7 @@ app.use(express.json());
 // Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Multer setup (memory storage)
+// Multer setup for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
 // --- GET all properties ---
@@ -33,26 +33,26 @@ app.post("/api/properties", upload.fields([
     let cover_url = null;
     let gallery_urls = [];
 
-    // Upload cover image if exists
+    // Upload cover image
     if (req.files.coverImage) {
       const file = req.files.coverImage[0];
       const fileName = Date.now() + "_" + file.originalname;
-      const { data, error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
+      const { error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
       if (error) throw error;
-      const { publicUrl, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
+      const { data: urlData, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
       if (urlErr) throw urlErr;
-      cover_url = publicUrl;
+      cover_url = urlData.publicUrl;
     }
 
     // Upload gallery images
     if (req.files.galleryImages) {
       for (let file of req.files.galleryImages) {
         const fileName = Date.now() + "_" + file.originalname;
-        const { data, error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
+        const { error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
         if (error) throw error;
-        const { publicUrl, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
+        const { data: urlData, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
         if (urlErr) throw urlErr;
-        gallery_urls.push(publicUrl);
+        gallery_urls.push(urlData.publicUrl);
       }
     }
 
@@ -101,22 +101,22 @@ app.put("/api/properties/:id", upload.fields([
     if (req.files.coverImage) {
       const file = req.files.coverImage[0];
       const fileName = Date.now() + "_" + file.originalname;
-      const { data, error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
+      const { error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
       if (error) throw error;
-      const { publicUrl, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
+      const { data: urlData, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
       if (urlErr) throw urlErr;
-      cover_url = publicUrl;
+      cover_url = urlData.publicUrl;
     }
 
     // Append new gallery images
     if (req.files.galleryImages) {
       for (let file of req.files.galleryImages) {
         const fileName = Date.now() + "_" + file.originalname;
-        const { data, error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
+        const { error } = await supabase.storage.from("property-images").upload(fileName, file.buffer, { upsert: true });
         if (error) throw error;
-        const { publicUrl, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
+        const { data: urlData, error: urlErr } = supabase.storage.from("property-images").getPublicUrl(fileName);
         if (urlErr) throw urlErr;
-        gallery_urls.push(publicUrl);
+        gallery_urls.push(urlData.publicUrl);
       }
     }
 
