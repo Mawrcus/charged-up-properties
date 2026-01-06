@@ -2,363 +2,86 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Charged Up Properties - Admin Inventory</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Inventory</title>
 <style>
-:root {
-  --primary-red: #FF0000;
-  --secondary-black: #000000;
-  --bg-white: #FFFFFF;
-  --card-bg: #1C1C1C;
-  --border-gray: #333333;
-}
-body {
-  font-family: 'Arial', sans-serif;
-  background: var(--secondary-black);
-  color: var(--bg-white);
-  margin: 0; padding: 0;
-}
-h1 {
-  text-align: center;
-  padding: 20px 0;
-  background: var(--primary-red);
-  color: var(--bg-white);
-  margin: 0 0 20px 0;
-}
-form {
-  max-width: 900px;
-  margin: 0 auto 40px auto;
-  padding: 25px;
-  border-radius: 12px;
-  background: var(--card-bg);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-label { display: block; margin-top: 12px; font-weight: bold; }
-input, select, textarea {
-  width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  border-radius: 6px;
-  border: 1px solid #555;
-  font-size: 14px;
-  background: #222;
-  color: var(--bg-white);
-}
-button {
-  margin-top: 15px;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 8px;
-  background: var(--primary-red);
-  color: var(--bg-white);
-  font-size: 16px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-button:hover { background: darkred; }
-h2 { text-align: center; margin-bottom: 20px; }
-.property-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-  max-width: 1200px;
-  margin: 0 auto 50px auto;
-}
-.property-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-gray);
-  border-radius: 12px;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-}
-.property-card img { width: 100%; height: auto; object-fit: cover; border-radius: 8px; margin-bottom: 10px; cursor: pointer; }
-.property-gallery { display: flex; overflow-x: auto; gap: 10px; padding: 5px 0; }
-.gallery-item { position: relative; display: inline-block; }
-.gallery-item img { height: 120px; object-fit: cover; border-radius: 6px; cursor: pointer; }
-.delete-img {
-  position: absolute;
-  top: -5px; right: -5px;
-  background: var(--primary-red);
-  color: var(--bg-white);
-  border-radius: 50%;
-  width: 22px; height: 22px;
-  font-weight: bold;
-  text-align: center;
-  line-height: 22px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.property-actions { margin-top: 10px; display: flex; justify-content: space-between; }
-.property-actions button { flex: 1; margin: 0 3px; font-size: 14px; }
-.property-actions button:first-child { background: #FFA500; }
-.property-actions button:first-child:hover { background: #FF8C00; }
-.property-actions button:last-child { background: var(--primary-red); }
-.property-actions button:last-child:hover { background: darkred; }
-/* Scrollbar */
-.property-gallery::-webkit-scrollbar { height: 8px; }
-.property-gallery::-webkit-scrollbar-thumb { background: var(--primary-red); border-radius: 4px; }
-/* Lightbox */
-#lightbox {
-  display:none;
-  position:fixed; top:0; left:0;
-  width:100%; height:100%;
-  background: rgba(0,0,0,0.95);
-  justify-content:center; align-items:center;
-  z-index:9999; flex-direction:column;
-}
-#lightbox img { max-width:90%; max-height:90%; border-radius:10px; }
-#lightbox span { position:absolute; top:20px; right:30px; font-size:40px; color:white; cursor:pointer; font-weight:bold; }
-#lightbox-prev, #lightbox-next {
-  position:absolute; top:50%; font-size:50px; color:white;
-  cursor:pointer; user-select:none; padding:10px;
-  background: rgba(0,0,0,0.4); border-radius:50%;
-  transform: translateY(-50%);
-}
-#lightbox-prev { left:20px; }
-#lightbox-next { right:20px; }
+  body { background: #000; color: #fff; font-family: Arial, sans-serif; }
+  header { background: #c00; padding: 20px; text-align: center; font-size: 2em; color: #fff; }
+  .property { border: 1px solid #fff; padding: 10px; margin: 10px; }
+  .images img { width: 100px; margin: 5px; cursor: pointer; border: 2px solid #fff; }
+  #zoomModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); justify-content:center; align-items:center; }
+  #zoomModal img { max-width:90%; max-height:90%; }
+  #zoomModal .close { position:absolute; top:10px; right:20px; color:#fff; font-size:2em; cursor:pointer; }
+  #zoomModal .prev, #zoomModal .next { position:absolute; top:50%; font-size:3em; color:#fff; cursor:pointer; user-select:none; }
+  #zoomModal .prev { left:10px; }
+  #zoomModal .next { right:10px; }
 </style>
 </head>
 <body>
+<header>Charged Up Properties Admin</header>
+<div id="propertiesContainer"></div>
 
-<h1>Charged Up Properties - Admin Inventory</h1>
-
-<form id="propertyForm">
-  <input type="hidden" id="propertyId">
-  <input type="hidden" id="existingCover">
-  <input type="hidden" id="existingGallery">
-
-  <label for="name">Property Name</label><input type="text" id="name" required>
-  <label for="price">Price</label><input type="text" id="price" required>
-  <label for="status">Status</label>
-  <select id="status" required>
-    <option value="For Sale">For Sale</option>
-    <option value="Pending">Pending</option>
-    <option value="Sold">Sold</option>
-  </select>
-  <label for="address">Address</label><input type="text" id="address" required>
-  <label for="beds">Beds</label><input type="number" id="beds">
-  <label for="baths">Baths</label><input type="number" id="baths" step="0.5">
-  <label for="sqft">Square Footage</label><input type="number" id="sqft">
-  <label for="type">Property Type</label><input type="text" id="type">
-  <label for="lot">Lot Size</label><input type="text" id="lot">
-  <label for="basement">Basement</label><input type="text" id="basement">
-  <label for="description">Description</label><textarea id="description"></textarea>
-
-  <label>Cover Image (Current Below)</label>
-  <div class="gallery-item" id="coverContainer">
-    <img id="coverPreview" src="" style="width:300px;height:auto;border-radius:6px;margin-bottom:8px;">
-    <div class="delete-img" id="deleteCover">×</div>
-  </div>
-  <input type="file" id="coverImage" name="coverImage" accept="image/*">
-
-  <label>Gallery Images (Current Below)</label>
-  <div id="galleryPreview" class="property-gallery"></div>
-  <input type="file" id="galleryImages" name="galleryImages" accept="image/*" multiple>
-
-  <button type="submit">Save Property</button>
-</form>
-
-<h2>Current Inventory</h2>
-<div id="propertyList" class="property-list"></div>
-
-<!-- Lightbox -->
-<div id="lightbox">
-  <img id="lightbox-img" src="">
-  <span id="lightbox-close">&times;</span>
-  <div id="lightbox-prev">&#10094;</div>
-  <div id="lightbox-next">&#10095;</div>
+<!-- Zoom modal -->
+<div id="zoomModal">
+  <span class="close">&times;</span>
+  <span class="prev">&#10094;</span>
+  <img src="" id="zoomImage">
+  <span class="next">&#10095;</span>
 </div>
 
 <script>
-const API_URL = "https://charged-up-properties-backend.onrender.com/api/properties";
-const form = document.getElementById("propertyForm");
-const propertyList = document.getElementById("propertyList");
-const coverPreview = document.getElementById("coverPreview");
-const galleryPreview = document.getElementById("galleryPreview");
-const coverContainer = document.getElementById("coverContainer");
-const deleteCover = document.getElementById("deleteCover");
+const API_URL = "https://YOUR_RENDER_BACKEND_URL/api/properties";
+let properties = [];
+let zoomIndex = 0;
+let zoomImages = [];
 
-// Lightbox elements
-const lightbox = document.getElementById("lightbox");
-const lightboxImg = document.getElementById("lightbox-img");
-const lightboxClose = document.getElementById("lightbox-close");
-const lightboxPrev = document.getElementById("lightbox-prev");
-const lightboxNext = document.getElementById("lightbox-next");
-
-let lightboxImages = []; // Array of src strings
-let currentIndex = 0;
-
-// Load properties
 async function loadProperties() {
-  try {
-    const res = await fetch(API_URL);
-    const properties = await res.json();
-    propertyList.innerHTML = properties.map(p => `
-      <div class="property-card" data-id="${p.id}">
-        <img src="uploads/${p.cover_image || ''}" alt="Cover">
-        <h3>${p.name}</h3>
-        <p>Price: ${p.price}</p>
-        <p>Status: ${p.status}</p>
-        <p>Beds: ${p.beds || 0} | Baths: ${p.baths || 0}</p>
-        <div class="property-gallery">
-          ${p.gallery_images && p.gallery_images.length
-            ? p.gallery_images.map(img => `<div class="gallery-item"><img src="uploads/${img}"></div>`).join('')
-            : ''}
-        </div>
-        <div class="property-actions">
-          <button onclick="editProperty('${p.id}')">Edit</button>
-          <button onclick="deleteProperty('${p.id}')">Delete</button>
-        </div>
+  const res = await fetch(API_URL);
+  properties = await res.json();
+  renderProperties();
+}
+
+function renderProperties() {
+  const container = document.getElementById("propertiesContainer");
+  container.innerHTML = "";
+  properties.forEach(p => {
+    const div = document.createElement("div");
+    div.classList.add("property");
+    div.innerHTML = `
+      <h3>${p.name} ($${p.price})</h3>
+      <p>Status: ${p.status}</p>
+      <p>Beds: ${p.beds}, Baths: ${p.baths}, Sqft: ${p.sqft}</p>
+      <div class="images">
+        ${p.cover_image ? `<img src="${p.cover_image}" onclick="openZoom('${p.cover_image}',0)">` : ""}
+        ${p.gallery_images.map((url,i)=>`<img src="${url}" onclick="openZoom('${url}',${i+1})">`).join('')}
       </div>
-    `).join('');
-  } catch (err) { console.error(err); propertyList.innerHTML="Error loading properties."; }
-}
-
-// Submit Add/Edit
-form.addEventListener("submit", async e => {
-  e.preventDefault();
-  const id = document.getElementById("propertyId").value;
-  const fd = new FormData();
-  fd.append("name", document.getElementById("name").value);
-  fd.append("price", document.getElementById("price").value);
-  fd.append("status", document.getElementById("status").value);
-  fd.append("address", document.getElementById("address").value);
-  fd.append("beds", document.getElementById("beds").value || 0);
-  fd.append("baths", document.getElementById("baths").value || 0);
-  fd.append("sqft", document.getElementById("sqft").value || 0);
-  fd.append("type", document.getElementById("type").value);
-  fd.append("lot", document.getElementById("lot").value);
-  fd.append("basement", document.getElementById("basement").value);
-  fd.append("description", document.getElementById("description").value);
-
-  const cover = document.getElementById("coverImage").files[0];
-  if (cover) fd.append("coverImage", cover);
-  else fd.append("coverImage", document.getElementById("existingCover").value);
-
-  const galleryFiles = document.getElementById("galleryImages").files;
-  const existingGallery = JSON.parse(document.getElementById("existingGallery").value || "[]");
-  fd.append("existingGallery", JSON.stringify(existingGallery));
-  if (galleryFiles.length) { for(let i=0;i<galleryFiles.length;i++) fd.append("images", galleryFiles[i]); }
-
-  try {
-    const method = id ? "PUT" : "POST";
-    const url = id ? `${API_URL}/${id}` : API_URL;
-    await fetch(url,{ method, body: fd });
-    form.reset();
-    coverPreview.src="";
-    galleryPreview.innerHTML="";
-    document.getElementById("propertyId").value="";
-    document.getElementById("existingCover").value="";
-    document.getElementById("existingGallery").value="";
-    loadProperties();
-  } catch(err){ console.error(err); alert("Error saving property"); }
-});
-
-// Edit property
-async function editProperty(id){
-  try{
-    const res = await fetch(`${API_URL}`);
-    const properties = await res.json();
-    const p = properties.find(x=>x.id==id);
-    if(!p) return;
-
-    document.getElementById("propertyId").value=p.id;
-    document.getElementById("name").value=p.name;
-    document.getElementById("price").value=p.price;
-    document.getElementById("status").value=p.status;
-    document.getElementById("address").value=p.address;
-    document.getElementById("beds").value=p.beds||'';
-    document.getElementById("baths").value=p.baths||'';
-    document.getElementById("sqft").value=p.sqft||'';
-    document.getElementById("type").value=p.type||'';
-    document.getElementById("lot").value=p.lot||'';
-    document.getElementById("basement").value=p.basement||'';
-    document.getElementById("description").value=p.description||'';
-
-    document.getElementById("existingCover").value = p.cover_image || "";
-    document.getElementById("existingGallery").value = JSON.stringify(p.gallery_images || []);
-
-    // Cover preview
-    coverPreview.src = p.cover_image ? `uploads/${p.cover_image}` : "";
-
-    // Cover delete
-    deleteCover.onclick = ()=>{
-      coverPreview.src="";
-      document.getElementById("existingCover").value="";
-    };
-
-    // Build gallery with delete
-    galleryPreview.innerHTML="";
-    let gallery = p.gallery_images || [];
-    gallery.forEach((img,index)=>{
-      const wrapper=document.createElement("div");
-      wrapper.className="gallery-item";
-      const imageEl=document.createElement("img");
-      imageEl.src=`uploads/${img}`;
-      wrapper.appendChild(imageEl);
-
-      const delBtn=document.createElement("div");
-      delBtn.className="delete-img";
-      delBtn.innerText="×";
-      delBtn.onclick=()=>{
-        gallery.splice(index,1);
-        document.getElementById("existingGallery").value=JSON.stringify(gallery);
-        wrapper.remove();
-      };
-      wrapper.appendChild(delBtn);
-      galleryPreview.appendChild(wrapper);
-    });
-
-    // Setup lightbox for cover + gallery
-    setupLightbox();
-  }catch(err){console.error(err);}
-}
-
-// Delete property
-async function deleteProperty(id){ if(!confirm("Are you sure?")) return;
-  try{ await fetch(`${API_URL}/${id}`,{method:"DELETE"}); loadProperties(); }catch(err){console.error(err); alert("Error deleting property"); }
-}
-
-// Lightbox logic
-function setupLightbox(){
-  lightboxImages=[];
-  if(coverPreview.src) lightboxImages.push(coverPreview.src);
-  const imgs=galleryPreview.querySelectorAll("img");
-  imgs.forEach(img=>lightboxImages.push(img.src));
-
-  imgs.forEach((img,i)=>{
-    img.onclick=()=>{
-      currentIndex=i+ (coverPreview.src?1:0);
-      showLightbox();
-    };
+    `;
+    container.appendChild(div);
   });
-  if(coverPreview.src){
-    coverPreview.onclick=()=>{
-      currentIndex=0;
-      showLightbox();
-    };
-  }
 }
 
-function showLightbox(){ 
-  lightbox.style.display="flex"; 
-  lightboxImg.src=lightboxImages[currentIndex];
-}
-lightboxClose.onclick=()=>{lightbox.style.display="none";}
-lightbox.onclick=e=>{if(e.target===lightbox) lightbox.style.display="none";}
-lightboxPrev.onclick=()=>{
-  currentIndex=(currentIndex-1+lightboxImages.length)%lightboxImages.length;
-  lightboxImg.src=lightboxImages[currentIndex];
-};
-lightboxNext.onclick=()=>{
-  currentIndex=(currentIndex+1)%lightboxImages.length;
-  lightboxImg.src=lightboxImages[currentIndex];
-};
+// Zoom modal
+const modal = document.getElementById("zoomModal");
+const zoomImg = document.getElementById("zoomImage");
+document.querySelector("#zoomModal .close").onclick = ()=>modal.style.display="none";
+document.querySelector("#zoomModal .prev").onclick = ()=>zoomNavigate(-1);
+document.querySelector("#zoomModal .next").onclick = ()=>zoomNavigate(1);
 
-// Initial load
+function openZoom(url,index) {
+  zoomImages = [url];
+  zoomIndex = 0;
+  zoomImg.src = url;
+  modal.style.display = "flex";
+}
+
+function zoomNavigate(dir) {
+  zoomIndex += dir;
+  if(zoomIndex<0) zoomIndex=zoomImages.length-1;
+  if(zoomIndex>=zoomImages.length) zoomIndex=0;
+  zoomImg.src = zoomImages[zoomIndex];
+}
+
 loadProperties();
 </script>
-
 </body>
 </html>

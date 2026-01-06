@@ -1,206 +1,120 @@
+// server.js
 import express from "express";
 import cors from "cors";
 import multer from "multer";
-import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-
+import dotenv from "dotenv";
 dotenv.config();
 
-console.log("SERVER STARTING");
-console.log("EXPRESS AND SUPABASE LOADED");
-
 const app = express();
-const port = process.env.PORT || 3000;
-
-/* -------------------- CORS -------------------- */
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
-
-/* -------------------- BODY -------------------- */
+app.use(cors());
 app.use(express.json());
 
-/* -------------------- SUPABASE -------------------- */
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Multer memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-if (!supabaseUrl) throw new Error("supabaseUrl is required.");
-if (!supabaseKey) throw new Error("supabaseKey is required.");
+// Supabase client
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-/* -------------------- MULTER (MEMORY) -------------------- */
-const upload = multer({ storage: multer.memoryStorage() });
-
-/* -------------------- HELPERS -------------------- */
-async function uploadImage(file) {
-  const fileName = `${Date.now()}_${file.originalname}`;
-
-  const { error } = await supabase.storage
+// Upload file to Supabase and get public URL
+async function uploadToSupabase(file) {
+  const fileName = Date.now() + "-" + file.originalname.replace(/\s/g, "_");
+  const { data, error } = await supabase.storage
     .from("property-images")
-    .upload(fileName, file.buffer, {
-      contentType: file.mimetype,
-      upsert: true,
-    });
+    .upload(fileName, file.buffer, { upsert: false });
 
   if (error) throw error;
 
-  const { data } = supabase.storage
+  const { publicUrl, error: urlError } = supabase.storage
     .from("property-images")
     .getPublicUrl(fileName);
 
-  return data.publicUrl;
+  if (urlError) throw urlError;
+  return publicUrl;
 }
 
-/* -------------------- ROUTES -------------------- */
+// In-memory DB for demo
+let properties = [];
+let idCounter = 1;
 
-/* GET all properties */
-app.get("/api/properties", async (req, res) => {
-  const { data, error } = await supabase
-    .from("properties")
-    .select("*")
-    .order("id", { ascending: false });
+// CREATE property
+app.post("/api/properties", upload.fields([
+  { name: "coverImage", maxCount: 1 },
+  { name: "galleryImages" }
+]), async (req, res) => {
+  try {
+    const { name, price, status, address, beds, baths, sqft, type, lot, basement, description } = req.body;
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+    let cover_image = null;
+    if (req.files.coverImage) cover_image = await uploadToSupabase(req.files.coverImage[0]);
+
+    let gallery_images = [];
+    if (req.files.galleryImages) {
+      for (const file of req.files.galleryImages) {
+        gallery_images.push(await uploadToSupabase(file));
+      }
+    }
+
+    const property = {
+      id: idCounter++,
+      name, price, status, address, beds, baths, sqft, type, lot, basement, description,
+      cover_image, gallery_images
+    };
+
+    properties.push(property);
+    res.json(property);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-/* CREATE property */
-app.post(
-  "/api/properties",
-  upload.fields([
-    { name: "coverImage", maxCount: 1 },
-    { name: "galleryImages" },
-  ]),
-  async (req, res) => {
-    try {
-      let coverUrl = null;
-      let galleryUrls = [];
+// READ all
+app.get("/api/properties", (req, res) => res.json(properties));
 
-      if (req.files.coverImage) {
-        coverUrl = await uploadImage(req.files.coverImage[0]);
+// UPDATE
+app.put("/api/properties/:id", upload.fields([
+  { name: "coverImage", maxCount: 1 },
+  { name: "galleryImages" }
+]), async (req, res) => {
+  try {
+    const property = properties.find(p => p.id == req.params.id);
+    if (!property) return res.status(404).json({ error: "Property not found" });
+
+    const { name, price, status, address, beds, baths, sqft, type, lot, basement, description, removeGallery } = req.body;
+
+    property.name = name; property.price = price; property.status = status;
+    property.address = address; property.beds = beds; property.baths = baths;
+    property.sqft = sqft; property.type = type; property.lot = lot;
+    property.basement = basement; property.description = description;
+
+    if (req.files.coverImage) property.cover_image = await uploadToSupabase(req.files.coverImage[0]);
+
+    if (req.files.galleryImages) {
+      for (const file of req.files.galleryImages) {
+        property.gallery_images.push(await uploadToSupabase(file));
       }
-
-      if (req.files.galleryImages) {
-        for (const img of req.files.galleryImages) {
-          const url = await uploadImage(img);
-          galleryUrls.push(url);
-        }
-      }
-
-      const payload = {
-        name: req.body.name,
-        price: req.body.price,
-        status: req.body.status,
-        address: req.body.address,
-        beds: req.body.beds,
-        baths: req.body.baths,
-        sqft: req.body.sqft,
-        type: req.body.type,
-        lot_size: req.body.lot,
-        basement: req.body.basement,
-        description: req.body.description,
-        cover_image: coverUrl,
-        gallery_images: galleryUrls,
-      };
-
-      const { data, error } = await supabase
-        .from("properties")
-        .insert([payload])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      res.json(data);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
     }
-  }
-);
 
-/* UPDATE property */
-app.put(
-  "/api/properties/:id",
-  upload.fields([
-    { name: "coverImage", maxCount: 1 },
-    { name: "galleryImages" },
-  ]),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      const { data: existing } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      let coverUrl = existing.cover_image;
-      let galleryUrls = existing.gallery_images || [];
-
-      if (req.files.coverImage) {
-        coverUrl = await uploadImage(req.files.coverImage[0]);
-      }
-
-      if (req.files.galleryImages) {
-        for (const img of req.files.galleryImages) {
-          const url = await uploadImage(img);
-          galleryUrls.push(url);
-        }
-      }
-
-      if (req.body.removeGallery) {
-        const remove = JSON.parse(req.body.removeGallery);
-        galleryUrls = galleryUrls.filter((u) => !remove.includes(u));
-      }
-
-      const payload = {
-        name: req.body.name,
-        price: req.body.price,
-        status: req.body.status,
-        address: req.body.address,
-        beds: req.body.beds,
-        baths: req.body.baths,
-        sqft: req.body.sqft,
-        type: req.body.type,
-        lot_size: req.body.lot,
-        basement: req.body.basement,
-        description: req.body.description,
-        cover_image: coverUrl,
-        gallery_images: galleryUrls,
-      };
-
-      const { data, error } = await supabase
-        .from("properties")
-        .update(payload)
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      res.json(data);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+    if (removeGallery) {
+      const toRemove = Array.isArray(removeGallery) ? removeGallery : [removeGallery];
+      property.gallery_images = property.gallery_images.filter(img => !toRemove.includes(img));
     }
+
+    res.json(property);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
-);
+});
 
-/* DELETE property */
-app.delete("/api/properties/:id", async (req, res) => {
-  const { id } = req.params;
-
-  const { error } = await supabase.from("properties").delete().eq("id", id);
-
-  if (error) return res.status(500).json({ error: error.message });
+// DELETE
+app.delete("/api/properties/:id", (req, res) => {
+  const idx = properties.findIndex(p => p.id == req.params.id);
+  if (idx === -1) return res.status(404).json({ error: "Property not found" });
+  properties.splice(idx, 1);
   res.json({ success: true });
 });
 
-/* -------------------- START -------------------- */
-app.listen(port, () => {
-  console.log(`Backend running on port ${port}`);
-});
+app.listen(process.env.PORT || 3000, () => console.log("Server running..."));
