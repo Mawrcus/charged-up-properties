@@ -1,87 +1,352 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Inventory</title>
-<style>
-  body { background: #000; color: #fff; font-family: Arial, sans-serif; }
-  header { background: #c00; padding: 20px; text-align: center; font-size: 2em; color: #fff; }
-  .property { border: 1px solid #fff; padding: 10px; margin: 10px; }
-  .images img { width: 100px; margin: 5px; cursor: pointer; border: 2px solid #fff; }
-  #zoomModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); justify-content:center; align-items:center; }
-  #zoomModal img { max-width:90%; max-height:90%; }
-  #zoomModal .close { position:absolute; top:10px; right:20px; color:#fff; font-size:2em; cursor:pointer; }
-  #zoomModal .prev, #zoomModal .next { position:absolute; top:50%; font-size:3em; color:#fff; cursor:pointer; user-select:none; }
-  #zoomModal .prev { left:10px; }
-  #zoomModal .next { right:10px; }
-</style>
+  <meta charset="UTF-8">
+  <title>Charged Up Properties - Admin</title>
+  <style>
+    /* --- Basic Colors & Theme --- */
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background-color: #E10600; /* Your red from logo */
+      padding: 20px;
+      text-align: center;
+      font-size: 2rem;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    main {
+      padding: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    /* --- Forms --- */
+    form {
+      background: #111;
+      padding: 20px;
+      margin-bottom: 40px;
+      border-radius: 8px;
+    }
+
+    form input, form select, form textarea {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #222;
+      color: #fff;
+    }
+
+    form button {
+      background-color: #E10600;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 1rem;
+      border-radius: 4px;
+    }
+
+    form button:hover {
+      background-color: #b80000;
+    }
+
+    /* --- Property List --- */
+    .property {
+      background: #111;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .property h3 {
+      margin-top: 0;
+    }
+
+    .property img {
+      max-width: 150px;
+      max-height: 100px;
+      object-fit: cover;
+      margin-right: 5px;
+      cursor: pointer;
+      border: 2px solid #444;
+      border-radius: 4px;
+    }
+
+    .property .gallery img {
+      max-width: 80px;
+      max-height: 80px;
+    }
+
+    .property button {
+      margin: 5px;
+    }
+
+    /* --- Modal Zoom --- */
+    #imageModal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      justify-content: center;
+      align-items: center;
+    }
+
+    #imageModal img {
+      max-width: 90%;
+      max-height: 90%;
+    }
+
+    #imageModal span {
+      position: absolute;
+      top: 20px;
+      right: 40px;
+      font-size: 3rem;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .arrow {
+      cursor: pointer;
+      font-size: 2rem;
+      color: #fff;
+      margin: 0 10px;
+      user-select: none;
+    }
+
+    .flex-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+  </style>
 </head>
 <body>
-<header>Charged Up Properties Admin</header>
-<div id="propertiesContainer"></div>
 
-<!-- Zoom modal -->
-<div id="zoomModal">
-  <span class="close">&times;</span>
-  <span class="prev">&#10094;</span>
-  <img src="" id="zoomImage">
-  <span class="next">&#10095;</span>
+<header>Charged Up Properties Admin</header>
+
+<main>
+
+  <!-- --- Add/Edit Form --- -->
+  <form id="propertyForm">
+    <input type="hidden" id="propertyId">
+    <label>Name:</label>
+    <input type="text" id="name" required>
+
+    <label>Price:</label>
+    <input type="number" id="price" required>
+
+    <label>Status:</label>
+    <select id="status" required>
+      <option value="For Sale">For Sale</option>
+      <option value="Pending">Pending</option>
+      <option value="Sold">Sold</option>
+    </select>
+
+    <label>Address:</label>
+    <input type="text" id="address">
+
+    <label>Beds:</label>
+    <input type="number" id="beds">
+
+    <label>Baths (can use 1.5):</label>
+    <input type="number" step="0.5" id="baths">
+
+    <label>Square Footage:</label>
+    <input type="number" id="sqft">
+
+    <label>Type:</label>
+    <input type="text" id="type">
+
+    <label>Lot Size:</label>
+    <input type="number" id="lot">
+
+    <label>Basement:</label>
+    <input type="text" id="basement">
+
+    <label>Description:</label>
+    <textarea id="description"></textarea>
+
+    <label>Cover Image:</label>
+    <input type="file" id="coverImage" accept="image/*">
+
+    <label>Gallery Images:</label>
+    <input type="file" id="galleryImages" accept="image/*" multiple>
+
+    <button type="submit">Save Property</button>
+  </form>
+
+  <div id="propertyList"></div>
+</main>
+
+<!-- Modal for zoom -->
+<div id="imageModal">
+  <span id="closeModal">&times;</span>
+  <span class="arrow" id="prev">&#10094;</span>
+  <img id="modalImage">
+  <span class="arrow" id="next">&#10095;</span>
 </div>
 
 <script>
-const API_URL = "https://charged-up-properties-backend.onrender.com/api/properties";
-let properties = [];
-let zoomIndex = 0;
-let zoomImages = [];
+const API_URL = "https://charged-up-properties-backend.onrender.com/api/properties"; // your backend URL
 
+let properties = [];
+let currentZoomIndex = 0;
+let currentGallery = [];
+
+// --- Load Properties ---
 async function loadProperties() {
-  const res = await fetch(API_URL);
-  properties = await res.json();
-  renderProperties();
+  try {
+    const res = await fetch(API_URL);
+    properties = await res.json();
+    renderProperties();
+  } catch (err) {
+    console.error("Failed to load properties:", err);
+  }
 }
 
+// --- Render Properties ---
 function renderProperties() {
-  const container = document.getElementById("propertiesContainer");
-  container.innerHTML = "";
-  properties.forEach(p => {
+  const list = document.getElementById("propertyList");
+  list.innerHTML = "";
+  properties.forEach(prop => {
     const div = document.createElement("div");
-    div.classList.add("property");
+    div.className = "property";
+
     div.innerHTML = `
-      <h3>${p.name} ($${p.price})</h3>
-      <p>Status: ${p.status}</p>
-      <p>Beds: ${p.beds}, Baths: ${p.baths}, Sqft: ${p.sqft}</p>
-      <div class="images">
-        ${p.cover_image ? `<img src="${p.cover_image}" onclick="openZoom('${p.cover_image}',0)">` : ""}
-        ${p.gallery_images.map((url,i)=>`<img src="${url}" onclick="openZoom('${url}',${i+1})">`).join('')}
+      <h3>${prop.name} - $${prop.price}</h3>
+      <p>Status: ${prop.status} | Beds: ${prop.beds} | Baths: ${prop.baths} | Sqft: ${prop.sqft}</p>
+      <p>Address: ${prop.address}</p>
+      <p>Type: ${prop.type} | Lot: ${prop.lot} | Basement: ${prop.basement}</p>
+      <p>${prop.description || ""}</p>
+      <div class="flex-row">
+        ${prop.cover_image ? `<img src="${prop.cover_image}" data-id="${prop.id}" data-type="cover">` : ""}
+        ${(prop.gallery_images || []).map(url => `<img src="${url}" data-id="${prop.id}" data-type="gallery">`).join("")}
       </div>
+      <button onclick="editProperty(${prop.id})">Edit</button>
+      <button onclick="deleteProperty(${prop.id})">Delete</button>
     `;
-    container.appendChild(div);
+    list.appendChild(div);
+  });
+
+  // Add click to zoom
+  document.querySelectorAll(".property img").forEach(img => {
+    img.onclick = e => {
+      const parentId = e.target.dataset.id;
+      const type = e.target.dataset.type;
+      const prop = properties.find(p => p.id == parentId);
+      if (type === "cover") currentGallery = [prop.cover_image];
+      else currentGallery = prop.gallery_images || [];
+      currentZoomIndex = currentGallery.indexOf(e.target.src);
+      showModal();
+    };
   });
 }
 
-// Zoom modal
-const modal = document.getElementById("zoomModal");
-const zoomImg = document.getElementById("zoomImage");
-document.querySelector("#zoomModal .close").onclick = ()=>modal.style.display="none";
-document.querySelector("#zoomModal .prev").onclick = ()=>zoomNavigate(-1);
-document.querySelector("#zoomModal .next").onclick = ()=>zoomNavigate(1);
+// --- Form Submit ---
+document.getElementById("propertyForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const id = document.getElementById("propertyId").value;
+  const formData = new FormData();
 
-function openZoom(url,index) {
-  zoomImages = [url];
-  zoomIndex = 0;
-  zoomImg.src = url;
+  formData.append("name", document.getElementById("name").value);
+  formData.append("price", document.getElementById("price").value);
+  formData.append("status", document.getElementById("status").value);
+  formData.append("address", document.getElementById("address").value);
+  formData.append("beds", document.getElementById("beds").value);
+  formData.append("baths", document.getElementById("baths").value);
+  formData.append("sqft", document.getElementById("sqft").value);
+  formData.append("type", document.getElementById("type").value);
+  formData.append("lot", document.getElementById("lot").value);
+  formData.append("basement", document.getElementById("basement").value);
+  formData.append("description", document.getElementById("description").value);
+
+  // Images
+  const coverFile = document.getElementById("coverImage").files[0];
+  if (coverFile) formData.append("coverImage", coverFile);
+  const galleryFiles = document.getElementById("galleryImages").files;
+  for (let f of galleryFiles) formData.append("galleryImages", f);
+
+  // If editing
+  if (id) {
+    formData.append("cover_image", ""); // leave empty to not overwrite if no new upload
+    formData.append("gallery_images", "[]"); // leave empty to not overwrite
+    await fetch(`${API_URL}/${id}`, { method: "PUT", body: formData });
+  } else {
+    await fetch(API_URL, { method: "POST", body: formData });
+  }
+
+  // Reset form
+  document.getElementById("propertyForm").reset();
+  document.getElementById("propertyId").value = "";
+  loadProperties();
+});
+
+// --- Edit Property ---
+function editProperty(id) {
+  const prop = properties.find(p => p.id == id);
+  document.getElementById("propertyId").value = id;
+  document.getElementById("name").value = prop.name;
+  document.getElementById("price").value = prop.price;
+  document.getElementById("status").value = prop.status;
+  document.getElementById("address").value = prop.address;
+  document.getElementById("beds").value = prop.beds;
+  document.getElementById("baths").value = prop.baths;
+  document.getElementById("sqft").value = prop.sqft;
+  document.getElementById("type").value = prop.type;
+  document.getElementById("lot").value = prop.lot;
+  document.getElementById("basement").value = prop.basement;
+  document.getElementById("description").value = prop.description;
+}
+
+// --- Delete Property ---
+async function deleteProperty(id) {
+  if (!confirm("Delete this property?")) return;
+  await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+  loadProperties();
+}
+
+// --- Modal for Zoom ---
+const modal = document.getElementById("imageModal");
+const modalImg = document.getElementById("modalImage");
+const closeModalBtn = document.getElementById("closeModal");
+const prevBtn = document.getElementById("prev");
+const nextBtn = document.getElementById("next");
+
+function showModal() {
   modal.style.display = "flex";
+  modalImg.src = currentGallery[currentZoomIndex];
 }
 
-function zoomNavigate(dir) {
-  zoomIndex += dir;
-  if(zoomIndex<0) zoomIndex=zoomImages.length-1;
-  if(zoomIndex>=zoomImages.length) zoomIndex=0;
-  zoomImg.src = zoomImages[zoomIndex];
-}
+closeModalBtn.onclick = () => modal.style.display = "none";
 
+prevBtn.onclick = () => {
+  currentZoomIndex = (currentZoomIndex - 1 + currentGallery.length) % currentGallery.length;
+  modalImg.src = currentGallery[currentZoomIndex];
+};
+
+nextBtn.onclick = () => {
+  currentZoomIndex = (currentZoomIndex + 1) % currentGallery.length;
+  modalImg.src = currentGallery[currentZoomIndex];
+};
+
+// --- Initial load ---
 loadProperties();
 </script>
+
 </body>
 </html>
