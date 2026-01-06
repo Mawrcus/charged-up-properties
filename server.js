@@ -1,133 +1,206 @@
-// server.js
 import express from "express";
 import cors from "cors";
 import multer from "multer";
-import path from "path";
-import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
-import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
+console.log("SERVER STARTING");
+console.log("EXPRESS AND SUPABASE LOADED");
+
 const app = express();
-const PORT = 3000;
+const port = process.env.PORT || 3000;
 
-// CORS
-app.use(cors());
+/* -------------------- CORS -------------------- */
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  })
+);
+
+/* -------------------- BODY -------------------- */
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+/* -------------------- SUPABASE -------------------- */
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Supabase client
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+if (!supabaseUrl) throw new Error("supabaseUrl is required.");
+if (!supabaseKey) throw new Error("supabaseKey is required.");
 
-// Multer setup
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    const dir = path.join(process.cwd(), "uploads");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-    cb(null, dir);
-  },
-  filename: function(req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, Date.now() + "-" + Math.round(Math.random() * 1E9) + ext);
-  }
-});
-const upload = multer({ storage });
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ----------------- ROUTES ------------------
+/* -------------------- MULTER (MEMORY) -------------------- */
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Get all properties
+/* -------------------- HELPERS -------------------- */
+async function uploadImage(file) {
+  const fileName = `${Date.now()}_${file.originalname}`;
+
+  const { error } = await supabase.storage
+    .from("property-images")
+    .upload(fileName, file.buffer, {
+      contentType: file.mimetype,
+      upsert: true,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage
+    .from("property-images")
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
+}
+
+/* -------------------- ROUTES -------------------- */
+
+/* GET all properties */
 app.get("/api/properties", async (req, res) => {
-  try {
-    const { data, error } = await supabase.from("properties").select("*");
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch properties" });
-  }
+  const { data, error } = await supabase
+    .from("properties")
+    .select("*")
+    .order("id", { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-// Add new property
-app.post("/api/properties", upload.fields([{ name: "coverImage" }, { name: "images" }]), async (req, res) => {
-  try {
-    const { name, price, status, address, beds, baths, sqft, type, lot, basement, description, existingGallery } = req.body;
+/* CREATE property */
+app.post(
+  "/api/properties",
+  upload.fields([
+    { name: "coverImage", maxCount: 1 },
+    { name: "galleryImages" },
+  ]),
+  async (req, res) => {
+    try {
+      let coverUrl = null;
+      let galleryUrls = [];
 
-    const cover_image = req.files.coverImage ? req.files.coverImage[0].filename : null;
+      if (req.files.coverImage) {
+        coverUrl = await uploadImage(req.files.coverImage[0]);
+      }
 
-    let gallery_images = [];
-    if (existingGallery) gallery_images = JSON.parse(existingGallery);
-    if (req.files.images) {
-      const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
-      gallery_images = [...gallery_images, ...files.map(f => f.filename)];
+      if (req.files.galleryImages) {
+        for (const img of req.files.galleryImages) {
+          const url = await uploadImage(img);
+          galleryUrls.push(url);
+        }
+      }
+
+      const payload = {
+        name: req.body.name,
+        price: req.body.price,
+        status: req.body.status,
+        address: req.body.address,
+        beds: req.body.beds,
+        baths: req.body.baths,
+        sqft: req.body.sqft,
+        type: req.body.type,
+        lot_size: req.body.lot,
+        basement: req.body.basement,
+        description: req.body.description,
+        cover_image: coverUrl,
+        gallery_images: galleryUrls,
+      };
+
+      const { data, error } = await supabase
+        .from("properties")
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-
-    const { data, error } = await supabase.from("properties").insert([{
-      name, price, status, address, beds, baths, sqft, type, lot, basement, description,
-      cover_image,
-      gallery_images
-    }]);
-
-    if (error) throw error;
-    res.json({ message: "Property added", data });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to add property" });
   }
-});
+);
 
-// Update property
-app.put("/api/properties/:id", upload.fields([{ name: "coverImage" }, { name: "images" }]), async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { name, price, status, address, beds, baths, sqft, type, lot, basement, description, existingGallery } = req.body;
+/* UPDATE property */
+app.put(
+  "/api/properties/:id",
+  upload.fields([
+    { name: "coverImage", maxCount: 1 },
+    { name: "galleryImages" },
+  ]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    // Merge existing + new gallery images
-    const existingImages = existingGallery ? JSON.parse(existingGallery) : [];
-    let uploadedImages = [];
-    if (req.files.images) {
-      const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
-      uploadedImages = files.map(f => f.filename);
+      const { data: existing } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      let coverUrl = existing.cover_image;
+      let galleryUrls = existing.gallery_images || [];
+
+      if (req.files.coverImage) {
+        coverUrl = await uploadImage(req.files.coverImage[0]);
+      }
+
+      if (req.files.galleryImages) {
+        for (const img of req.files.galleryImages) {
+          const url = await uploadImage(img);
+          galleryUrls.push(url);
+        }
+      }
+
+      if (req.body.removeGallery) {
+        const remove = JSON.parse(req.body.removeGallery);
+        galleryUrls = galleryUrls.filter((u) => !remove.includes(u));
+      }
+
+      const payload = {
+        name: req.body.name,
+        price: req.body.price,
+        status: req.body.status,
+        address: req.body.address,
+        beds: req.body.beds,
+        baths: req.body.baths,
+        sqft: req.body.sqft,
+        type: req.body.type,
+        lot_size: req.body.lot,
+        basement: req.body.basement,
+        description: req.body.description,
+        cover_image: coverUrl,
+        gallery_images: galleryUrls,
+      };
+
+      const { data, error } = await supabase
+        .from("properties")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-    const finalGallery = [...existingImages, ...uploadedImages];
-
-    // Cover image
-    const cover_image = req.files.coverImage ? req.files.coverImage[0].filename : req.body.coverImage;
-
-    const { data, error } = await supabase
-      .from("properties")
-      .update({
-        name, price, status, address, beds, baths, sqft, type, lot, basement, description,
-        cover_image,
-        gallery_images: finalGallery
-      })
-      .eq("id", id);
-
-    if (error) throw error;
-    res.json({ message: "Property updated", data });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to update property" });
   }
-});
+);
 
-// Delete property
+/* DELETE property */
 app.delete("/api/properties/:id", async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { data, error } = await supabase.from("properties").delete().eq("id", id);
-    if (error) throw error;
-    res.json({ message: "Property deleted", data });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to delete property" });
-  }
+  const { id } = req.params;
+
+  const { error } = await supabase.from("properties").delete().eq("id", id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`SERVER STARTING\nBackend running at http://localhost:${PORT}`);
+/* -------------------- START -------------------- */
+app.listen(port, () => {
+  console.log(`Backend running on port ${port}`);
 });
