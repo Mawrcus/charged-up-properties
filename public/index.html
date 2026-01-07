@@ -271,6 +271,8 @@ if (!token) {
 }
 
 async function authFetch(url, options = {}) {
+  const token = localStorage.getItem("authToken");
+
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -281,7 +283,7 @@ async function authFetch(url, options = {}) {
 
   if (res.status === 401) {
     localStorage.removeItem("authToken");
-    window.location.href = "login.html";
+    window.location.replace("login.html");
     return;
   }
 
