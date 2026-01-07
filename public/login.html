@@ -60,12 +60,13 @@ button:hover{background:#a61f1f}
     <input type="password" id="password" placeholder="Enter password" required>
     <button type="submit">Login</button>
     <div class="error" id="errorMsg"></div>
+    <div id="error" style="color:#ff4d4d;margin-top:10px;font-size:14px;"></div>
   </form>
 </div>
 
 <script>
 const form = document.getElementById("loginForm");
-const error = document.getElementById("error");
+const error = document.getElementById("errorMsg");
 
 form.onsubmit = async (e) => {
   e.preventDefault();
