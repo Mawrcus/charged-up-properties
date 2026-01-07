@@ -54,7 +54,7 @@ app.post("/auth/login", (req, res) => {
     { expiresIn: "12h" }
   );
 
-  res.json({ token });
+  return res.json({ token });
 });
 
 /* ===========================
