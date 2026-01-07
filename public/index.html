@@ -178,8 +178,8 @@ button:hover{background:#a61f1f}
 }
 </style>
 </head>
-
 <body>
+
 <script>
 /* ===============================
    AUTH GUARD
@@ -244,17 +244,17 @@ function logout(){ localStorage.removeItem("authToken"); window.location.href="l
   <span class="prev">&#10094;</span>
   <img id="modalImg">
   <span class="next">&#10095;</span>
-  <div class="zoom-level" id="zoomLevel" style="display:none;">2x</div>
+  <div class="zoom-level" id="zoomLevel">2x</div>
 </div>
 
 <script>
 /* ===============================
    AUTH FETCH
 ================================ */
-const API = "https://charged-up-properties-backend.onrender.com/api/properties";
+const API="https://charged-up-properties-backend.onrender.com/api/properties";
 async function authFetch(url, options={}) {
-  const token = localStorage.getItem("authToken");
-  const res = await fetch(url, {...options, headers:{...(options.headers||{}), Authorization:`Bearer ${token}` }});
+  const token=localStorage.getItem("authToken");
+  const res=await fetch(url,{...options,headers:{...(options.headers||{}),Authorization:`Bearer ${token}`}});
   if(res.status===401){ localStorage.removeItem("authToken"); window.location.href="login.html"; return; }
   return res;
 }
@@ -264,6 +264,9 @@ async function authFetch(url, options={}) {
 ================================ */
 let properties=[], modalImgs=[], modalIndex=0;
 let magnified=false, zoomFactor=2;
+const modal=document.getElementById("modal");
+const modalImg=document.getElementById("modalImg");
+const zoomLevel=document.getElementById("zoomLevel");
 
 function resetForm(){
   propertyForm.reset();
@@ -272,47 +275,68 @@ function resetForm(){
   galleryPreview.innerHTML="";
 }
 
+/* DRAG & REORDER HELPERS */
+function enableDrag(container){
+  let dragged=null;
+  container.addEventListener("dragstart",e=>{ dragged=e.target; e.target.classList.add("dragging"); });
+  container.addEventListener("dragend",e=>{ e.target.classList.remove("dragging"); });
+  container.addEventListener("dragover",e=>{
+    e.preventDefault();
+    const after=e.target.closest(".preview");
+    if(after && dragged!==after){
+      const rect=after.getBoundingClientRect();
+      const next=(e.clientX-rect.left>rect.width/2)?after.nextSibling:after;
+      container.insertBefore(dragged,next);
+    }
+  });
+}
+
 /* POPULATE FORM FOR EDIT */
 function populateForm(p){
-  propertyId.value = p.id;
+  propertyId.value=p.id;
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
-    .forEach(k=>document.getElementById(k).value = p[k]||"");
+    .forEach(k=>document.getElementById(k).value=p[k]||"");
 
-  // Cover preview
-  coverPreview.innerHTML = "";
+  // Cover
+  coverPreview.innerHTML="";
   if(p.cover_image){
-    const div = document.createElement("div");
+    const div=document.createElement("div");
     div.className="preview";
-    div.innerHTML = `<img src="${p.cover_image}" class="cover"><span class="remove">&times;</span>`;
-    div.querySelector(".remove").onclick = ()=>coverPreview.innerHTML="";
+    div.innerHTML=`<img src="${p.cover_image}" class="cover"><span class="remove">&times;</span>`;
+    div.querySelector(".remove").onclick=()=>coverPreview.innerHTML="";
+    div.querySelector("img").onclick=()=>openModal(p.cover_image, [p.cover_image]);
     coverPreview.appendChild(div);
   }
 
-  // Gallery preview
+  // Gallery
   galleryPreview.innerHTML="";
+  modalImgs=[];
   if(p.gallery_images?.length){
     p.gallery_images.forEach(url=>{
-      const div = document.createElement("div");
+      const div=document.createElement("div");
       div.className="preview";
+      div.draggable=true;
       div.innerHTML=`<img src="${url}"><span class="remove">&times;</span>`;
       div.querySelector(".remove").onclick=()=>div.remove();
+      div.querySelector("img").onclick=()=>openModal(url, p.gallery_images);
       galleryPreview.appendChild(div);
     });
+    enableDrag(galleryPreview);
   }
 }
 
 /* LOAD PROPERTIES */
 async function load(){
-  const res = await authFetch(API);
-  properties = await res.json();
+  const res=await authFetch(API);
+  properties=await res.json();
   inventory.innerHTML="";
   properties.forEach(prop=>{
-    const card = document.createElement("div");
+    const card=document.createElement("div");
     card.className="card";
     card.innerHTML=`
-      <div class="cover-wrap"><img src="${prop.cover_image||''}" class="cover" onclick="openModal('${prop.cover_image||''}')"></div>
+      <div class="cover-wrap"><img src="${prop.cover_image||''}" class="cover"></div>
       <div class="card-body">
-        <div class="price">${prop.price ? '$'+prop.price : ''}</div>
+        <div class="price">${prop.price? '$'+prop.price: ''}</div>
         <div class="meta">${prop.beds||''} Beds • ${prop.baths||''} Baths • ${prop.sqft||''} Sq Ft</div>
         <div>${prop.address||''}</div>
         <div class="actions">
@@ -321,62 +345,100 @@ async function load(){
         </div>
       </div>
     `;
+    card.querySelector(".cover").onclick=()=>openModal(prop.cover_image,[prop.cover_image]);
     inventory.appendChild(card);
   });
 }
 
 /* DELETE */
-async function del(id){
-  if(confirm("Delete property?")){
-    await authFetch(`${API}/${id}`,{method:"DELETE"});
-    load();
-  }
-}
+async function del(id){ if(confirm("Delete property?")){ await authFetch(`${API}/${id}`,{method:"DELETE"}); load(); } }
 
 /* EDIT */
-function edit(id){
-  const p = properties.find(x=>x.id===id);
-  if(!p) return;
-  populateForm(p);
-}
+function edit(id){ const p=properties.find(x=>x.id===id); if(p) populateForm(p); }
 
 /* SUBMIT */
-propertyForm.onsubmit = async e => {
+propertyForm.onsubmit=async e=>{
   e.preventDefault();
-  const fd = new FormData();
+  const fd=new FormData();
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
-    .forEach(k=>fd.append(k, document.getElementById(k).value));
+    .forEach(k=>fd.append(k,document.getElementById(k).value));
 
-  // Cover image
-  if(coverImage.files[0]) fd.append("coverImage", coverImage.files[0]);
-  // Gallery images
+  if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
 
-  const id = propertyId.value;
-  await authFetch(id ? `${API}/${id}` : API, { method: id ? "PUT":"POST", body: fd });
+  const id=propertyId.value;
+  await authFetch(id?`${API}/${id}`:API,{method:id?"PUT":"POST",body:fd});
   resetForm();
   load();
 };
 
 /* ===============================
-   MODAL ZOOM / VIEW
+   MODAL / MAGNIFY
 ================================ */
-function openModal(src){
+function openModal(src, list){
   if(!src) return;
   modal.style.display="flex";
   modalImg.src=src;
+  modalImgs=list||[src];
+  modalIndex=modalImgs.indexOf(src);
+  magnified=false;
+  modalImg.style.transform="scale(1)";
+  modal.style.cursor="zoom-in";
+  zoomLevel.style.display="none";
 }
-document.querySelector("#modal .close").onclick = ()=>{ modal.style.display="none"; };
-document.querySelector("#modal .prev").onclick = ()=>{ 
+
+// Modal close
+document.querySelector("#modal .close").onclick=()=>modal.style.display="none";
+
+// Arrows
+document.querySelector("#modal .prev").onclick=()=>{
   if(!modalImgs.length) return;
-  modalIndex = (modalIndex-1+modalImgs.length)%modalImgs.length;
-  modalImg.src = modalImgs[modalIndex];
+  modalIndex=(modalIndex-1+modalImgs.length)%modalImgs.length;
+  modalImg.src=modalImgs[modalIndex];
+  magnified=false; modalImg.style.transform="scale(1)"; modal.style.cursor="zoom-in"; zoomLevel.style.display="none";
 };
-document.querySelector("#modal .next").onclick = ()=>{ 
+document.querySelector("#modal .next").onclick=()=>{
   if(!modalImgs.length) return;
-  modalIndex = (modalIndex+1)%modalImgs.length;
-  modalImg.src = modalImgs[modalIndex];
+  modalIndex=(modalIndex+1)%modalImgs.length;
+  modalImg.src=modalImgs[modalIndex];
+  magnified=false; modalImg.style.transform="scale(1)"; modal.style.cursor="zoom-in"; zoomLevel.style.display="none";
 };
+
+// Arrow keys
+document.addEventListener("keydown",e=>{
+  if(modal.style.display==="flex"){
+    if(e.key==="ArrowLeft") document.querySelector("#modal .prev").click();
+    if(e.key==="ArrowRight") document.querySelector("#modal .next").click();
+  }
+});
+
+// Magnify toggle
+modalImg.addEventListener("click",()=>{
+  magnified=!magnified;
+  modal.style.cursor=magnified?"zoom-in":"zoom-out";
+  zoomLevel.style.display=magnified?"block":"none";
+  modalImg.style.transform=magnified?"scale("+zoomFactor+")":"scale(1)";
+});
+
+// Mouse move for magnify
+modal.addEventListener("mousemove",e=>{
+  if(magnified){
+    const rect=modalImg.getBoundingClientRect();
+    const x=(e.clientX-rect.left)/rect.width;
+    const y=(e.clientY-rect.top)/rect.height;
+    modalImg.style.transformOrigin=`${x*100}% ${y*100}%`;
+  }
+});
+
+// Scroll zoom
+modal.addEventListener("wheel",e=>{
+  if(magnified){
+    e.preventDefault();
+    zoomFactor=Math.min(Math.max(1,zoomFactor+(e.deltaY<0?0.2:-0.2)),5);
+    modalImg.style.transform="scale("+zoomFactor+")";
+    zoomLevel.textContent=Math.round(zoomFactor*100)/100+"x";
+  }
+}, {passive:false});
 
 /* ===============================
    INITIAL LOAD
