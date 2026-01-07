@@ -38,23 +38,20 @@ function requireAuth(req, res, next) {
 /* ===========================
    LOGIN (SINGLE PASSWORD)
 =========================== */
-app.post("/auth/login", (req, res) => {
+app.post("/api/login", (req, res) => {
   const { password } = req.body;
-
-  if (!password) return res.status(400).json({ error: "Password required" });
 
   if (password !== process.env.ADMIN_PASSWORD) {
     return res.status(401).json({ error: "Invalid password" });
   }
 
-  // Create JWT token
   const token = jwt.sign(
     { role: "admin" },
     process.env.JWT_SECRET,
     { expiresIn: "12h" }
   );
 
-  return res.json({ token });
+  res.json({ token });
 });
 
 /* ===========================
