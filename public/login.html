@@ -66,11 +66,12 @@ button:hover{background:#a61f1f}
 
 <script>
 const form = document.getElementById("loginForm");
-const error = document.getElementById("errorMsg");
+const errorMsg = document.getElementById("errorMsg");
 
-form.onsubmit = async (e) => {
-  e.preventDefault();
-  error.textContent = "";
+form.addEventListener("submit", async (e) => {
+  e.preventDefault(); // 🔴 THIS IS CRITICAL
+
+  errorMsg.textContent = "";
 
   const password = document.getElementById("password").value;
 
@@ -87,20 +88,21 @@ form.onsubmit = async (e) => {
     const data = await res.json();
 
     if (!res.ok) {
-      error.textContent = data.error || "Login failed";
+      errorMsg.textContent = data.error || "Login failed";
       return;
     }
 
-    // ✅ STORE TOKEN
+    // ✅ SAVE TOKEN
     localStorage.setItem("authToken", data.token);
 
-    // ✅ REDIRECT (THIS WAS MISSING)
+    // ✅ FORCE REDIRECT
     window.location.href = "index.html";
 
   } catch (err) {
-    error.textContent = "Server error";
+    console.error(err);
+    errorMsg.textContent = "Server error";
   }
-};
+});
 </script>
 
 

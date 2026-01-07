@@ -184,7 +184,7 @@ button:hover{background:#a61f1f}
 <body>
   <script>
 (function authGuard(){
-  const token = localStorage.getItem("adminToken");
+  const token = localStorage.getItem("authToken");
 
   if(!token){
     window.location.replace("login.html");
@@ -199,12 +199,12 @@ button:hover{background:#a61f1f}
   })
   .then(res => {
     if(!res.ok){
-      localStorage.removeItem("adminToken");
+      localStorage.removeItem("authToken");
       window.location.replace("login.html");
     }
   })
   .catch(() => {
-    localStorage.removeItem("adminToken");
+    localStorage.removeItem("authToken");
     window.location.replace("login.html");
   });
 })();
