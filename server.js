@@ -38,7 +38,7 @@ function requireAuth(req, res, next) {
 /* ===========================
    LOGIN (SINGLE PASSWORD)
 =========================== */
-app.post("/api/login", (req, res) => {
+app.post("/auth/login", (req, res) => {
   const { password } = req.body;
 
   if (!password) return res.status(400).json({ error: "Password required" });
