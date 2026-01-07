@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import multer from "multer";
+import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
@@ -14,6 +15,47 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
+
+/* ===========================
+   AUTH MIDDLEWARE
+=========================== */
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: "Missing token" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+/* ===========================
+   LOGIN
+=========================== */
+app.post("/auth/login", (req, res) => {
+  const { username, password } = req.body;
+
+  if (
+    username !== process.env.ADMIN_USERNAME ||
+    password !== process.env.ADMIN_PASSWORD
+  ) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  const token = jwt.sign(
+    { role: "admin" },
+    process.env.JWT_SECRET,
+    { expiresIn: "12h" }
+  );
+
+  res.json({ token });
+});
 
 /* ===========================
    MULTER
@@ -36,9 +78,9 @@ async function uploadImage(file) {
 }
 
 /* ===========================
-   GET ALL
+   GET ALL (PROTECTED)
 =========================== */
-app.get("/api/properties", async (req, res) => {
+app.get("/api/properties", requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from("properties")
     .select("*")
@@ -49,10 +91,11 @@ app.get("/api/properties", async (req, res) => {
 });
 
 /* ===========================
-   CREATE
+   CREATE (PROTECTED)
 =========================== */
 app.post(
   "/api/properties",
+  requireAuth,
   upload.fields([
     { name: "coverImage", maxCount: 1 },
     { name: "galleryImages" },
@@ -97,7 +140,6 @@ app.post(
         .single();
 
       if (error) throw error;
-
       res.json(data);
     } catch (err) {
       console.error("CREATE ERROR:", err);
@@ -107,10 +149,11 @@ app.post(
 );
 
 /* ===========================
-   UPDATE
+   UPDATE (PROTECTED)
 =========================== */
 app.put(
   "/api/properties/:id",
+  requireAuth,
   upload.fields([
     { name: "coverImage", maxCount: 1 },
     { name: "galleryImages" },
@@ -154,7 +197,6 @@ app.put(
         .single();
 
       if (error) throw error;
-
       res.json(data);
     } catch (err) {
       console.error("UPDATE ERROR:", err);
@@ -164,9 +206,9 @@ app.put(
 );
 
 /* ===========================
-   DELETE
+   DELETE (PROTECTED)
 =========================== */
-app.delete("/api/properties/:id", async (req, res) => {
+app.delete("/api/properties/:id", requireAuth, async (req, res) => {
   const { error } = await supabase
     .from("properties")
     .delete()
