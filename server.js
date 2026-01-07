@@ -21,9 +21,7 @@ const supabase = createClient(
 =========================== */
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ error: "Missing token" });
-  }
+  if (!authHeader) return res.status(401).json({ error: "Missing token" });
 
   const token = authHeader.split(" ")[1];
 
@@ -70,15 +68,13 @@ app.get("/api/verify", (req, res) => {
   }
 });
 
-
 /* ===========================
-   MULTER
+   MULTER FOR FILE UPLOADS
 =========================== */
 const upload = multer({ storage: multer.memoryStorage() });
 
 async function uploadImage(file) {
   const filename = `${Date.now()}_${file.originalname}`;
-
   const { error } = await supabase.storage
     .from("property-images")
     .upload(filename, file.buffer, {
@@ -92,7 +88,7 @@ async function uploadImage(file) {
 }
 
 /* ===========================
-   GET ALL (PROTECTED)
+   GET ALL PROPERTIES (PROTECTED)
 =========================== */
 app.get("/api/properties", requireAuth, async (req, res) => {
   const { data, error } = await supabase
@@ -105,7 +101,7 @@ app.get("/api/properties", requireAuth, async (req, res) => {
 });
 
 /* ===========================
-   CREATE (PROTECTED)
+   CREATE PROPERTY (PROTECTED)
 =========================== */
 app.post(
   "/api/properties",
@@ -133,23 +129,21 @@ app.post(
 
       const { data, error } = await supabase
         .from("properties")
-        .insert([
-          {
-            name: body.name,
-            price: body.price || null,
-            status: body.status,
-            address: body.address,
-            beds: body.beds || null,
-            baths: body.baths || null,
-            sqft: body.sqft || null,
-            type: body.type,
-            lot: body.lot,
-            basement: body.basement,
-            description: body.description,
-            cover_image,
-            gallery_images,
-          },
-        ])
+        .insert([{
+          name: body.name,
+          price: body.price || null,
+          status: body.status,
+          address: body.address,
+          beds: body.beds || null,
+          baths: body.baths || null,
+          sqft: body.sqft || null,
+          type: body.type,
+          lot: body.lot,
+          basement: body.basement,
+          description: body.description,
+          cover_image,
+          gallery_images,
+        }])
         .select()
         .single();
 
@@ -163,7 +157,7 @@ app.post(
 );
 
 /* ===========================
-   UPDATE (PROTECTED)
+   UPDATE PROPERTY (PROTECTED)
 =========================== */
 app.put(
   "/api/properties/:id",
@@ -220,7 +214,7 @@ app.put(
 );
 
 /* ===========================
-   DELETE (PROTECTED)
+   DELETE PROPERTY (PROTECTED)
 =========================== */
 app.delete("/api/properties/:id", requireAuth, async (req, res) => {
   const { error } = await supabase
@@ -233,7 +227,7 @@ app.delete("/api/properties/:id", requireAuth, async (req, res) => {
 });
 
 /* ===========================
-   START
+   START SERVER
 =========================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

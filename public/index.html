@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Charged Up Properties – Inventory</title>
 <style>
+
 /* ======= YOUR ORIGINAL CSS — UNCHANGED ======= */
 :root{
   --red:#c62828;
@@ -211,6 +212,16 @@ button:hover{background:#a61f1f}
 </script>
 
 <header>Charged Up Properties – Inventory</header>
+<button onclick="logout()" style="position:absolute;top:20px;right:20px;background:#000;">
+  Logout
+</button>
+
+<script>
+function logout(){
+  localStorage.removeItem("authToken");
+  window.location.href = "login.html";
+}
+</script>
 
 <div class="container">
 <form id="propertyForm">
@@ -316,7 +327,12 @@ async function del(id){
     load();
   }
 }
-
+function resetForm(){
+  propertyForm.reset();
+  propertyId.value = "";
+  coverPreview.innerHTML = "";
+  galleryPreview.innerHTML = "";
+}
 /* SUBMIT */
 propertyForm.onsubmit=async e=>{
   e.preventDefault();
