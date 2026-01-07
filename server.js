@@ -36,18 +36,18 @@ function requireAuth(req, res, next) {
 }
 
 /* ===========================
-   LOGIN
+   LOGIN (SINGLE PASSWORD)
 =========================== */
-app.post("/auth/login", (req, res) => {
-  const { username, password } = req.body;
+app.post("/api/login", (req, res) => {
+  const { password } = req.body;
 
-  if (
-    username !== process.env.ADMIN_USERNAME ||
-    password !== process.env.ADMIN_PASSWORD
-  ) {
-    return res.status(401).json({ error: "Invalid credentials" });
+  if (!password) return res.status(400).json({ error: "Password required" });
+
+  if (password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: "Invalid password" });
   }
 
+  // Create JWT token
   const token = jwt.sign(
     { role: "admin" },
     process.env.JWT_SECRET,
@@ -56,6 +56,23 @@ app.post("/auth/login", (req, res) => {
 
   res.json({ token });
 });
+
+/* ===========================
+   VERIFY TOKEN
+=========================== */
+app.get("/api/verify", (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: "Missing token" });
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ valid: true, role: decoded.role });
+  } catch {
+    res.status(401).json({ valid: false, error: "Invalid token" });
+  }
+});
+
 
 /* ===========================
    MULTER
