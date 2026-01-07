@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Charged Up Properties – Inventory</title>
+
 <style>
 :root{
   --red:#c62828;
@@ -30,6 +31,7 @@ header{
   margin:auto;
   padding:30px 20px 60px;
 }
+
 /* FORM */
 form{
   background:var(--card);
@@ -63,6 +65,7 @@ button{
   cursor:pointer;
 }
 button:hover{background:#a61f1f}
+
 /* PREVIEWS */
 .preview-row{
   display:flex;
@@ -71,17 +74,21 @@ button:hover{background:#a61f1f}
   margin-top:10px;
 }
 .preview{
+  width:140px;
+  height:100px;
   position:relative;
   cursor:grab;
 }
-.preview.dragging{opacity:.4}
+.preview.dragging{
+  opacity:.3;
+}
 .preview img{
-  width:140px;
-  height:100px;
+  width:100%;
+  height:100%;
   object-fit:cover;
   border-radius:8px;
   border:1px solid var(--border);
-  cursor:pointer;
+  pointer-events:none; /* 🔥 CRITICAL */
 }
 .preview .remove{
   position:absolute;
@@ -93,7 +100,9 @@ button:hover{background:#a61f1f}
   padding:3px 6px;
   color:#fff;
   cursor:pointer;
+  pointer-events:auto;
 }
+
 /* INVENTORY */
 .inventory-grid{
   display:grid;
@@ -121,23 +130,12 @@ button:hover{background:#a61f1f}
 .card-body{padding:16px}
 .price{color:var(--red);font-weight:bold;margin:6px 0}
 .meta{font-size:13px;opacity:.85;margin-bottom:6px}
-.gallery-grid{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:6px;
-}
-.gallery-grid img{
-  width:100%;
-  height:70px;
-  object-fit:cover;
-  border-radius:6px;
-  cursor:pointer;
-}
 .actions{
   display:flex;
   gap:10px;
   margin-top:12px;
 }
+
 /* MODAL */
 #modal{
   display:none;
@@ -148,20 +146,16 @@ button:hover{background:#a61f1f}
   align-items:center;
   justify-content:center;
   cursor:zoom-in;
-  overflow:hidden;
 }
 #modal img{
   max-width:96%;
   max-height:96%;
-  transition: transform 0.2s ease;
-  transform-origin: center center;
-  cursor:inherit;
+  transition:transform .2s ease;
 }
 #modal span{
   position:absolute;
   font-size:44px;
   cursor:pointer;
-  user-select:none;
 }
 .close{top:20px;right:30px}
 .prev{left:20px}
@@ -170,58 +164,29 @@ button:hover{background:#a61f1f}
   position:absolute;
   top:25px;
   left:25px;
-  color:#fff;
-  font-size:16px;
-  background:rgba(0,0,0,0.5);
+  background:rgba(0,0,0,.5);
   padding:4px 8px;
   border-radius:6px;
 }
 </style>
 </head>
+
 <body>
 
-<script>
-/* AUTH GUARD */
-(function authGuard(){
-  const token=localStorage.getItem("authToken");
-  if(!token){ window.location.replace("login.html"); return; }
-  fetch("https://charged-up-properties-backend.onrender.com/api/verify", {
-    headers:{ "Authorization":"Bearer "+token }
-  }).then(res => { if(!res.ok){ localStorage.removeItem("authToken"); window.location.replace("login.html"); } })
-  .catch(()=>{ localStorage.removeItem("authToken"); window.location.replace("login.html"); });
-})();
-</script>
-
 <header>Charged Up Properties – Inventory</header>
-<button onclick="logout()" style="position:absolute;top:20px;right:20px;background:#000;">Logout</button>
-<script>function logout(){ localStorage.removeItem("authToken"); window.location.href="login.html"; }</script>
 
 <div class="container">
+
 <form id="propertyForm">
 <input type="hidden" id="propertyId">
 
 <div class="grid">
   <div><label>Name<input id="name" required></label></div>
   <div><label>Price<input id="price" type="number"></label></div>
-  <div>
-    <label>Status
-      <select id="status">
-        <option>For Sale</option>
-        <option>Pending</option>
-        <option>Sold</option>
-      </select>
-    </label>
-  </div>
+  <div><label>Status<select id="status"><option>For Sale</option><option>Pending</option><option>Sold</option></select></label></div>
   <div><label>Address<input id="address"></label></div>
-  <div><label>Beds<input id="beds" type="number"></label></div>
-  <div><label>Baths<input id="baths" type="number" step="0.5"></label></div>
-  <div><label>Sq Ft<input id="sqft" type="number"></label></div>
-  <div><label>Type<input id="type"></label></div>
-  <div><label>Lot Size<input id="lot"></label></div>
-  <div><label>Basement<input id="basement"></label></div>
 </div>
 
-<label>Description<textarea id="description"></textarea></label>
 <label>Cover Image<input type="file" id="coverImage"></label>
 <div id="coverPreview" class="preview-row"></div>
 
@@ -229,7 +194,6 @@ button:hover{background:#a61f1f}
 <div id="galleryPreview" class="preview-row"></div>
 
 <button type="submit">Save Property</button>
-<button type="button" onclick="resetForm()" style="margin-left:10px;background:#333">Clear Form</button>
 </form>
 
 <div id="inventory" class="inventory-grid"></div>
@@ -244,181 +208,107 @@ button:hover{background:#a61f1f}
 </div>
 
 <script>
-const API="https://charged-up-properties-backend.onrender.com/api/properties";
-let properties=[], modalImgs=[], modalIndex=0;
-let magnified=false, zoomFactor=2;
+/* ===============================
+   DRAG REORDER (FIXED)
+================================ */
+function enableDrag(container){
+  let dragged=null;
+
+  container.querySelectorAll(".preview").forEach(item=>{
+    item.draggable=true;
+
+    item.addEventListener("dragstart",e=>{
+      dragged=item;
+      item.classList.add("dragging");
+      e.dataTransfer.setDragImage(new Image(),0,0);
+    });
+
+    item.addEventListener("dragend",()=>{
+      item.classList.remove("dragging");
+      dragged=null;
+    });
+  });
+
+  container.addEventListener("dragover",e=>{
+    e.preventDefault();
+    const after=getDragAfter(container,e.clientX);
+    if(after==null){
+      container.appendChild(dragged);
+    }else{
+      container.insertBefore(dragged,after);
+    }
+  });
+}
+
+function getDragAfter(container,x){
+  const els=[...container.querySelectorAll(".preview:not(.dragging)")];
+  return els.reduce((closest,child)=>{
+    const box=child.getBoundingClientRect();
+    const offset=x-box.left-box.width/2;
+    if(offset<0 && offset>closest.offset){
+      return {offset,element:child};
+    }else{
+      return closest;
+    }
+  },{offset:-Infinity}).element;
+}
+
+/* ===============================
+   PREVIEW CREATION
+================================ */
+function addGalleryPreview(src){
+  const div=document.createElement("div");
+  div.className="preview";
+  div.innerHTML=`<img src="${src}"><span class="remove">&times;</span>`;
+  div.querySelector(".remove").onclick=()=>div.remove();
+  div.onclick=()=>openModal(src,[...galleryPreview.querySelectorAll("img")].map(i=>i.src));
+  galleryPreview.appendChild(div);
+  enableDrag(galleryPreview);
+}
+
+galleryImages.onchange=()=>{
+  [...galleryImages.files].forEach(f=>{
+    const r=new FileReader();
+    r.onload=e=>addGalleryPreview(e.target.result);
+    r.readAsDataURL(f);
+  });
+};
+
+/* ===============================
+   MODAL + MAGNIFY
+================================ */
+let zoom=2,magnified=false;
 const modal=document.getElementById("modal");
 const modalImg=document.getElementById("modalImg");
 const zoomLevel=document.getElementById("zoomLevel");
 
-function resetForm(){
-  propertyForm.reset();
-  propertyId.value="";
-  coverPreview.innerHTML="";
-  galleryPreview.innerHTML="";
-}
-
-/* DRAG & REORDER with order update */
-function enableDrag(container){
-  let dragged=null;
-  container.addEventListener("dragstart",e=>{
-    if(e.target.classList.contains("preview")){
-      dragged=e.target;
-      e.dataTransfer.setDragImage(document.createElement("div"),0,0);
-      e.target.classList.add("dragging");
-    }
-  });
-  container.addEventListener("dragend",e=>{
-    if(dragged) dragged.classList.remove("dragging");
-    dragged=null;
-    // Update galleryImages.files order if needed or capture later on submit
-  });
-  container.addEventListener("dragover",e=>{
-    e.preventDefault();
-    const after=e.target.closest(".preview");
-    if(after && dragged && dragged!==after){
-      const rect=after.getBoundingClientRect();
-      const next=(e.clientX-rect.left>rect.width/2)?after.nextSibling:after;
-      container.insertBefore(dragged,next);
-    }
-  });
-}
-
-/* POPULATE FORM */
-function populateForm(p){
-  propertyId.value=p.id;
-  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
-    .forEach(k=>document.getElementById(k).value=p[k]||"");
-
-  // Cover
-  coverPreview.innerHTML="";
-  if(p.cover_image){
-    const div=document.createElement("div");
-    div.className="preview";
-    div.innerHTML=`<img src="${p.cover_image}" class="cover"><span class="remove">&times;</span>`;
-    div.querySelector(".remove").onclick=()=>coverPreview.innerHTML="";
-    div.querySelector("img").onclick=()=>openModal(p.cover_image,[p.cover_image]);
-    coverPreview.appendChild(div);
-  }
-
-  // Gallery
-  galleryPreview.innerHTML="";
-  if(p.gallery_images?.length){
-    p.gallery_images.forEach(url=>{
-      const div=document.createElement("div");
-      div.className="preview";
-      div.draggable=true;
-      div.innerHTML=`<img src="${url}"><span class="remove">&times;</span>`;
-      div.querySelector(".remove").onclick=()=>div.remove();
-      div.querySelector("img").onclick=()=>openModal(url,p.gallery_images);
-      galleryPreview.appendChild(div);
-    });
-    enableDrag(galleryPreview);
-  }
-}
-
-/* LOAD PROPERTIES */
-async function load(){
-  const res=await fetch(API,{headers:{Authorization:`Bearer ${localStorage.getItem("authToken")}`}});
-  properties=await res.json();
-  inventory.innerHTML="";
-  properties.forEach(prop=>{
-    const card=document.createElement("div");
-    card.className="card";
-    card.innerHTML=`
-      <div class="cover-wrap"><img src="${prop.cover_image||''}" class="cover"></div>
-      <div class="card-body">
-        <div class="price">${prop.price? '$'+prop.price: ''}</div>
-        <div class="meta">${prop.beds||''} Beds • ${prop.baths||''} Baths • ${prop.sqft||''} Sq Ft</div>
-        <div>${prop.address||''}</div>
-        <div class="actions">
-          <button onclick="edit(${prop.id})">Edit</button>
-          <button onclick="del(${prop.id})">Delete</button>
-        </div>
-      </div>
-    `;
-    card.querySelector(".cover").onclick=()=>openModal(prop.cover_image,[prop.cover_image]);
-    inventory.appendChild(card);
-  });
-}
-
-/* DELETE / EDIT */
-async function del(id){ if(confirm("Delete property?")){ await fetch(`${API}/${id}`,{method:"DELETE",headers:{Authorization:`Bearer ${localStorage.getItem("authToken")}`}}); load(); } }
-function edit(id){ const p=properties.find(x=>x.id===id); if(p) populateForm(p); }
-
-/* SUBMIT */
-propertyForm.onsubmit=async e=>{
-  e.preventDefault();
-  const fd=new FormData();
-  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
-    .forEach(k=>fd.append(k,document.getElementById(k).value));
-  if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
-  [...galleryPreview.querySelectorAll(".preview img")].forEach(img=>{
-    // Append files if you want to reorder persisted, or track new upload order
-    // Here just uploading selected files
-  });
-  const id=propertyId.value;
-  await fetch(id?`${API}/${id}`:API,{method:id?"PUT":"POST",body:fd,headers:{Authorization:`Bearer ${localStorage.getItem("authToken")}`}});
-  resetForm();
-  load();
-};
-
-/* MODAL / MAGNIFY */
 function openModal(src,list){
-  if(!src) return;
   modal.style.display="flex";
   modalImg.src=src;
-  modalImgs=list||[src];
-  modalIndex=modalImgs.indexOf(src);
   magnified=false;
-  zoomFactor=2;
+  zoom=2;
   modalImg.style.transform="scale(1)";
-  modal.style.cursor="zoom-in";
   zoomLevel.style.display="none";
 }
-document.querySelector("#modal .close").onclick=()=>modal.style.display="none";
-document.querySelector("#modal .prev").onclick=()=>{
-  if(!modalImgs.length) return;
-  modalIndex=(modalIndex-1+modalImgs.length)%modalImgs.length;
-  modalImg.src=modalImgs[modalIndex];
-  magnified=false; modalImg.style.transform="scale(1)"; modal.style.cursor="zoom-in"; zoomLevel.style.display="none";
-};
-document.querySelector("#modal .next").onclick=()=>{
-  if(!modalImgs.length) return;
-  modalIndex=(modalIndex+1)%modalImgs.length;
-  modalImg.src=modalImgs[modalIndex];
-  magnified=false; modalImg.style.transform="scale(1)"; modal.style.cursor="zoom-in"; zoomLevel.style.display="none";
-};
-document.addEventListener("keydown",e=>{
-  if(modal.style.display==="flex"){
-    if(e.key==="ArrowLeft") document.querySelector("#modal .prev").click();
-    if(e.key==="ArrowRight") document.querySelector("#modal .next").click();
-  }
-});
-modalImg.addEventListener("click",()=>{
-  magnified=!magnified;
-  modal.style.cursor=magnified?"zoom-in":"zoom-out";
-  zoomLevel.style.display=magnified?"block":"none";
-  modalImg.style.transform=magnified?"scale("+zoomFactor+")":"scale(1)";
-});
-modal.addEventListener("mousemove",e=>{
-  if(magnified){
-    const rect=modalImg.getBoundingClientRect();
-    const x=(e.clientX-rect.left)/rect.width;
-    const y=(e.clientY-rect.top)/rect.height;
-    modalImg.style.transformOrigin=`${x*100}% ${y*100}%`;
-  }
-});
-modal.addEventListener("wheel",e=>{
-  if(magnified){
-    e.preventDefault();
-    zoomFactor=Math.min(Math.max(1,zoomFactor+(e.deltaY<0?0.2:-0.2)),5);
-    modalImg.style.transform="scale("+zoomFactor+")";
-    zoomLevel.textContent=Math.round(zoomFactor*100)/100+"x";
-  }
-},{passive:false});
+document.querySelector(".close").onclick=()=>modal.style.display="none";
 
-load();
+modalImg.onclick=()=>{
+  magnified=!magnified;
+  modalImg.style.transform=magnified?`scale(${zoom})`:"scale(1)";
+  zoomLevel.style.display=magnified?"block":"none";
+};
+modal.onmousemove=e=>{
+  if(!magnified) return;
+  const r=modalImg.getBoundingClientRect();
+  modalImg.style.transformOrigin=`${(e.clientX-r.left)/r.width*100}% ${(e.clientY-r.top)/r.height*100}%`;
+};
+modal.onwheel=e=>{
+  if(!magnified) return;
+  e.preventDefault();
+  zoom=Math.min(5,Math.max(1,zoom+(e.deltaY<0?.2:-.2)));
+  modalImg.style.transform=`scale(${zoom})`;
+  zoomLevel.textContent=zoom.toFixed(1)+"x";
+};
 </script>
 </body>
 </html>
