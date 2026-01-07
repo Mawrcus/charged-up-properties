@@ -186,14 +186,10 @@ button:hover{background:#a61f1f}
 ================================ */
 (function authGuard(){
   const token = localStorage.getItem("authToken");
-  if(!token){
-    window.location.replace("login.html");
-    return;
-  }
+  if(!token){ window.location.replace("login.html"); return; }
   fetch("https://charged-up-properties-backend.onrender.com/api/verify", {
-    headers: { "Authorization": "Bearer " + token }
-  })
-  .then(res => { if(!res.ok){ localStorage.removeItem("authToken"); window.location.replace("login.html"); } })
+    headers:{ "Authorization": "Bearer "+token }
+  }).then(res => { if(!res.ok){ localStorage.removeItem("authToken"); window.location.replace("login.html"); } })
   .catch(()=>{ localStorage.removeItem("authToken"); window.location.replace("login.html"); });
 })();
 </script>
@@ -256,14 +252,10 @@ function logout(){ localStorage.removeItem("authToken"); window.location.href="l
    AUTH FETCH
 ================================ */
 const API = "https://charged-up-properties-backend.onrender.com/api/properties";
-
-async function authFetch(url, options = {}) {
+async function authFetch(url, options={}) {
   const token = localStorage.getItem("authToken");
-  const res = await fetch(url, {
-    ...options,
-    headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` }
-  });
-  if(res.status === 401){ localStorage.removeItem("authToken"); window.location.href="login.html"; return; }
+  const res = await fetch(url, {...options, headers:{...(options.headers||{}), Authorization:`Bearer ${token}` }});
+  if(res.status===401){ localStorage.removeItem("authToken"); window.location.href="login.html"; return; }
   return res;
 }
 
@@ -275,28 +267,54 @@ let magnified=false, zoomFactor=2;
 
 function resetForm(){
   propertyForm.reset();
-  propertyId.value = "";
+  propertyId.value="";
+  coverPreview.innerHTML="";
+  galleryPreview.innerHTML="";
+}
+
+/* POPULATE FORM FOR EDIT */
+function populateForm(p){
+  propertyId.value = p.id;
+  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
+    .forEach(k=>document.getElementById(k).value = p[k]||"");
+
+  // Cover preview
   coverPreview.innerHTML = "";
-  galleryPreview.innerHTML = "";
+  if(p.cover_image){
+    const div = document.createElement("div");
+    div.className="preview";
+    div.innerHTML = `<img src="${p.cover_image}" class="cover"><span class="remove">&times;</span>`;
+    div.querySelector(".remove").onclick = ()=>coverPreview.innerHTML="";
+    coverPreview.appendChild(div);
+  }
+
+  // Gallery preview
+  galleryPreview.innerHTML="";
+  if(p.gallery_images?.length){
+    p.gallery_images.forEach(url=>{
+      const div = document.createElement("div");
+      div.className="preview";
+      div.innerHTML=`<img src="${url}"><span class="remove">&times;</span>`;
+      div.querySelector(".remove").onclick=()=>div.remove();
+      galleryPreview.appendChild(div);
+    });
+  }
 }
 
 /* LOAD PROPERTIES */
 async function load(){
   const res = await authFetch(API);
   properties = await res.json();
-  inventory.innerHTML = "";
-
-  properties.forEach(prop => {
+  inventory.innerHTML="";
+  properties.forEach(prop=>{
     const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div class="cover-wrap">
-        <img src="${prop.cover_image || ''}" class="cover" onclick="openModal('${prop.cover_image}')">
-      </div>
+    card.className="card";
+    card.innerHTML=`
+      <div class="cover-wrap"><img src="${prop.cover_image||''}" class="cover" onclick="openModal('${prop.cover_image||''}')"></div>
       <div class="card-body">
         <div class="price">${prop.price ? '$'+prop.price : ''}</div>
-        <div class="meta">${prop.beds || ''} Beds • ${prop.baths || ''} Baths • ${prop.sqft || ''} Sq Ft</div>
-        <div>${prop.address || ''}</div>
+        <div class="meta">${prop.beds||''} Beds • ${prop.baths||''} Baths • ${prop.sqft||''} Sq Ft</div>
+        <div>${prop.address||''}</div>
         <div class="actions">
           <button onclick="edit(${prop.id})">Edit</button>
           <button onclick="del(${prop.id})">Delete</button>
@@ -319,29 +337,23 @@ async function del(id){
 function edit(id){
   const p = properties.find(x=>x.id===id);
   if(!p) return;
-  propertyId.value = p.id;
-  ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
-    .forEach(k=>document.getElementById(k).value = p[k] || '');
+  populateForm(p);
 }
 
 /* SUBMIT */
 propertyForm.onsubmit = async e => {
   e.preventDefault();
   const fd = new FormData();
-
-  // Basic fields
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
-    .forEach(k => fd.append(k, document.getElementById(k).value));
+    .forEach(k=>fd.append(k, document.getElementById(k).value));
 
   // Cover image
-  if (coverImage.files[0]) fd.append("coverImage", coverImage.files[0]);
-
+  if(coverImage.files[0]) fd.append("coverImage", coverImage.files[0]);
   // Gallery images
-  [...galleryImages.files].forEach(f => fd.append("galleryImages", f));
+  [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
 
   const id = propertyId.value;
-  await authFetch(id ? `${API}/${id}` : API, { method: id ? "PUT" : "POST", body: fd });
-
+  await authFetch(id ? `${API}/${id}` : API, { method: id ? "PUT":"POST", body: fd });
   resetForm();
   load();
 };
@@ -355,8 +367,16 @@ function openModal(src){
   modalImg.src=src;
 }
 document.querySelector("#modal .close").onclick = ()=>{ modal.style.display="none"; };
-document.querySelector("#modal .prev").onclick = ()=>{ /* implement if needed */ };
-document.querySelector("#modal .next").onclick = ()=>{ /* implement if needed */ };
+document.querySelector("#modal .prev").onclick = ()=>{ 
+  if(!modalImgs.length) return;
+  modalIndex = (modalIndex-1+modalImgs.length)%modalImgs.length;
+  modalImg.src = modalImgs[modalIndex];
+};
+document.querySelector("#modal .next").onclick = ()=>{ 
+  if(!modalImgs.length) return;
+  modalIndex = (modalIndex+1)%modalImgs.length;
+  modalImg.src = modalImgs[modalIndex];
+};
 
 /* ===============================
    INITIAL LOAD

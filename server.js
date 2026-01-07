@@ -168,41 +168,57 @@ app.put(
   ]),
   async (req, res) => {
     try {
-  console.log("BODY RECEIVED:", req.body);
-  console.log("FILES RECEIVED:", req.files);
+      const { id } = req.params;
+      const body = req.body;
 
-  const { data, error } = await supabase
-    .from("properties")
-    .insert([{
-      name: body.name || null,
-      price: body.price ? parseInt(body.price) : null,
-      status: body.status || null,
-      address: body.address || null,
-      beds: body.beds ? parseInt(body.beds) : null,
-      baths: body.baths ? parseFloat(body.baths) : null,
-      sqft: body.sqft ? parseInt(body.sqft) : null,
-      type: body.type || null,
-      lot: body.lot || null,
-      basement: body.basement || null,
-      description: body.description || null,
-      cover_image,
-      gallery_images,
-    }])
-    .select()
-    .single();
+      const update = {
+        name: body.name || null,
+        price: body.price ? parseInt(body.price) : null,
+        status: body.status || null,
+        address: body.address || null,
+        beds: body.beds ? parseInt(body.beds) : null,
+        baths: body.baths ? parseFloat(body.baths) : null,
+        sqft: body.sqft ? parseInt(body.sqft) : null,
+        type: body.type || null,
+        lot: body.lot || null,
+        basement: body.basement || null,
+        description: body.description || null,
+      };
 
-  if (error) {
-    console.error("SUPABASE INSERT ERROR:", error);
-    return res.status(500).json({ error });
-  }
+      // Handle cover image update
+      if (req.files?.coverImage && req.files.coverImage[0]) {
+        update.cover_image = await uploadImage(req.files.coverImage[0]);
+      }
 
-  res.json(data);
-} catch (err) {
-  console.error("SERVER ERROR:", err);
-  res.status(500).json({ error: err.message });
-}
+      // Handle gallery image update
+      if (req.files?.galleryImages && req.files.galleryImages.length) {
+        const imgs = [];
+        for (const img of req.files.galleryImages) {
+          imgs.push(await uploadImage(img));
+        }
+        update.gallery_images = imgs;
+      }
+
+      const { data, error } = await supabase
+        .from("properties")
+        .update(update)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("SUPABASE UPDATE ERROR:", error);
+        return res.status(500).json({ error });
+      }
+
+      res.json(data);
+    } catch (err) {
+      console.error("SERVER ERROR:", err);
+      res.status(500).json({ error: err.message });
+    }
   }
 );
+
 
 /* ===========================
    DELETE PROPERTY (PROTECTED)
