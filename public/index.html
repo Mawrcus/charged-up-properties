@@ -185,10 +185,10 @@ button:hover{background:#a61f1f}
    AUTH GUARD
 ================================ */
 (function authGuard(){
-  const token = localStorage.getItem("authToken");
+  const token=localStorage.getItem("authToken");
   if(!token){ window.location.replace("login.html"); return; }
   fetch("https://charged-up-properties-backend.onrender.com/api/verify", {
-    headers:{ "Authorization": "Bearer "+token }
+    headers:{ "Authorization":"Bearer "+token }
   }).then(res => { if(!res.ok){ localStorage.removeItem("authToken"); window.location.replace("login.html"); } })
   .catch(()=>{ localStorage.removeItem("authToken"); window.location.replace("login.html"); });
 })();
@@ -278,12 +278,21 @@ function resetForm(){
 /* DRAG & REORDER HELPERS */
 function enableDrag(container){
   let dragged=null;
-  container.addEventListener("dragstart",e=>{ dragged=e.target; e.target.classList.add("dragging"); });
-  container.addEventListener("dragend",e=>{ e.target.classList.remove("dragging"); });
+  container.addEventListener("dragstart",e=>{
+    if(e.target.classList.contains("preview")){
+      dragged=e.target;
+      e.dataTransfer.setDragImage(document.createElement("div"),0,0); // no giant ghost
+      e.target.classList.add("dragging");
+    }
+  });
+  container.addEventListener("dragend",e=>{
+    if(dragged) dragged.classList.remove("dragging");
+    dragged=null;
+  });
   container.addEventListener("dragover",e=>{
     e.preventDefault();
     const after=e.target.closest(".preview");
-    if(after && dragged!==after){
+    if(after && dragged && dragged!==after){
       const rect=after.getBoundingClientRect();
       const next=(e.clientX-rect.left>rect.width/2)?after.nextSibling:after;
       container.insertBefore(dragged,next);
@@ -304,7 +313,7 @@ function populateForm(p){
     div.className="preview";
     div.innerHTML=`<img src="${p.cover_image}" class="cover"><span class="remove">&times;</span>`;
     div.querySelector(".remove").onclick=()=>coverPreview.innerHTML="";
-    div.querySelector("img").onclick=()=>openModal(p.cover_image, [p.cover_image]);
+    div.querySelector("img").onclick=()=>openModal(p.cover_image,[p.cover_image]);
     coverPreview.appendChild(div);
   }
 
@@ -318,7 +327,7 @@ function populateForm(p){
       div.draggable=true;
       div.innerHTML=`<img src="${url}"><span class="remove">&times;</span>`;
       div.querySelector(".remove").onclick=()=>div.remove();
-      div.querySelector("img").onclick=()=>openModal(url, p.gallery_images);
+      div.querySelector("img").onclick=()=>openModal(url,p.gallery_images);
       galleryPreview.appendChild(div);
     });
     enableDrag(galleryPreview);
@@ -362,10 +371,8 @@ propertyForm.onsubmit=async e=>{
   const fd=new FormData();
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>fd.append(k,document.getElementById(k).value));
-
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
   [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
-
   const id=propertyId.value;
   await authFetch(id?`${API}/${id}`:API,{method:id?"PUT":"POST",body:fd});
   resetForm();
@@ -375,13 +382,14 @@ propertyForm.onsubmit=async e=>{
 /* ===============================
    MODAL / MAGNIFY
 ================================ */
-function openModal(src, list){
+function openModal(src,list){
   if(!src) return;
   modal.style.display="flex";
   modalImg.src=src;
   modalImgs=list||[src];
   modalIndex=modalImgs.indexOf(src);
   magnified=false;
+  zoomFactor=2;
   modalImg.style.transform="scale(1)";
   modal.style.cursor="zoom-in";
   zoomLevel.style.display="none";
@@ -438,7 +446,7 @@ modal.addEventListener("wheel",e=>{
     modalImg.style.transform="scale("+zoomFactor+")";
     zoomLevel.textContent=Math.round(zoomFactor*100)/100+"x";
   }
-}, {passive:false});
+},{passive:false});
 
 /* ===============================
    INITIAL LOAD
