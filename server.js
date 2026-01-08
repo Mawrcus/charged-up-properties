@@ -5,7 +5,17 @@ import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    "https://admin.chargedupdeals.com",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 /* ===========================
