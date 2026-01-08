@@ -254,6 +254,10 @@ function resetForm(){
   galleryPreview.innerHTML="";
 }
 
+function getGalleryOrder() {
+  return [...galleryPreview.querySelectorAll("img")].map(img => img.src);
+}
+
 /* ===== FIXED DRAG LOGIC ===== */
 function enableDrag(container){
   let dragged=null;
@@ -357,7 +361,12 @@ propertyForm.onsubmit=async e=>{
     .forEach(k=>fd.append(k,document.getElementById(k).value));
 
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
-  [...galleryImages.files].forEach(f=>fd.append("galleryImages",f));
+ // New gallery files (if any)
+[...galleryImages.files].forEach(f => fd.append("galleryImages", f));
+
+// Existing gallery order (CRITICAL)
+fd.append("galleryOrder", JSON.stringify(getGalleryOrder()));
+
 
   await authFetch(propertyId.value?`${API}/${propertyId.value}`:API,{
     method:propertyId.value?"PUT":"POST",
@@ -381,6 +390,18 @@ function openModal(src,list){
 document.querySelector(".close").onclick=()=>modal.style.display="none";
 document.querySelector(".prev").onclick=()=>openModal(modalImgs[(--modalIndex+modalImgs.length)%modalImgs.length],modalImgs);
 document.querySelector(".next").onclick=()=>openModal(modalImgs[(++modalIndex)%modalImgs.length],modalImgs);
+
+/* KEYBOARD ARROW NAVIGATION */
+window.addEventListener("keydown", e => {
+  if (modal.style.display !== "flex") return;
+
+  if (e.key === "ArrowLeft") {
+    document.querySelector("#modal .prev").click();
+  }
+  if (e.key === "ArrowRight") {
+    document.querySelector("#modal .next").click();
+  }
+});
 
 modalImg.onclick=()=>{
   magnified=!magnified;

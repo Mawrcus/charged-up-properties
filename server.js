@@ -198,6 +198,10 @@ app.put(
         }
         update.gallery_images = imgs;
       }
+      
+      if (body.galleryOrder) {
+  update.gallery_images = JSON.parse(body.galleryOrder);
+}
 
       const { data, error } = await supabase
         .from("properties")
