@@ -176,6 +176,8 @@ app.post(
           lot: body.lot,
           basement: body.basement,
           description: body.description,
+          listing_url: body.listing_url || null,
+hot_deal: body.hot_deal === "true" || body.hot_deal === true,
           cover_image,
           gallery_images,
         }])
@@ -218,6 +220,8 @@ app.put(
         lot: body.lot || null,
         basement: body.basement || null,
         description: body.description || null,
+        listing_url: body.listing_url || null,
+hot_deal: body.hot_deal === "true" || body.hot_deal === true,
       };
 
       // Handle cover image update
@@ -298,6 +302,8 @@ app.get("/api/public/properties", async (req, res) => {
       lot: p.lot,
       basement: p.basement,
       description: p.description,
+      listing_url: p.listing_url,
+hot_deal: p.hot_deal,
       cover_image: p.cover_image,
       gallery_images: p.gallery_images
     }));
