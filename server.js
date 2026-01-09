@@ -262,38 +262,42 @@ app.delete("/api/properties/:id", requireAuth, async (req, res) => {
 });
 
 /* ===========================
-   PUBLIC PROPERTIES (READ ONLY)
+   PUBLIC PROPERTIES API
 =========================== */
-app.get("/api/public/properties", publicCors, async (req, res) => {
+app.get("/api/public/properties", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select(`
-        id,
-        name,
-        price,
-        status,
-        address,
-        beds,
-        baths,
-        sqft,
-        type,
-        lot,
-        basement,
-        description,
-        cover_image,
-        gallery_images
-      `)
+      .select("*")
       .order("id", { ascending: false });
 
-    if (error) throw error;
+    if (error) return res.status(500).json(error);
 
-    res.json(data);
+    // Optional: strip any sensitive data
+    const publicData = data.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      status: p.status,
+      address: p.address,
+      beds: p.beds,
+      baths: p.baths,
+      sqft: p.sqft,
+      type: p.type,
+      lot: p.lot,
+      basement: p.basement,
+      description: p.description,
+      cover_image: p.cover_image,
+      gallery_images: p.gallery_images
+    }));
+
+    res.json(publicData);
   } catch (err) {
     console.error("PUBLIC API ERROR:", err);
-    res.status(500).json({ error: "Failed to load properties" });
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 /* ===========================
    START SERVER
