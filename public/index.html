@@ -380,8 +380,10 @@ propertyForm.onsubmit=async e=>{
   const fd=new FormData();
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>fd.append(k,document.getElementById(k).value));
-    document.getElementById("listing_url").value = p.listing_url || "";
-document.getElementById("hot_deal").value = p.hot_deal ? "true" : "false";
+    
+   // ✅ NEW: Append the listing_url and hot_deal fields from the form inputs
+  fd.append("listing_url", document.getElementById("listing_url").value);
+  fd.append("hot_deal", document.getElementById("hot_deal").value === "true");
 
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
  // New gallery files (if any)
