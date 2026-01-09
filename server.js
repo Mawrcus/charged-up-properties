@@ -18,6 +18,20 @@ app.use(cors({
 
 app.use(express.json());
 
+const PUBLIC_ORIGINS = [
+  "https://chargedupdeals.com",
+  "https://www.chargedupdeals.com"
+];
+
+function publicCors(req, res, next) {
+  const origin = req.headers.origin;
+  if (PUBLIC_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET");
+  next();
+}
+
 /* ===========================
    SUPABASE
 =========================== */
@@ -245,6 +259,40 @@ app.delete("/api/properties/:id", requireAuth, async (req, res) => {
 
   if (error) return res.status(500).json(error);
   res.json({ success: true });
+});
+
+/* ===========================
+   PUBLIC PROPERTIES (READ ONLY)
+=========================== */
+app.get("/api/public/properties", publicCors, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .select(`
+        id,
+        name,
+        price,
+        status,
+        address,
+        beds,
+        baths,
+        sqft,
+        type,
+        lot,
+        basement,
+        description,
+        cover_image,
+        gallery_images
+      `)
+      .order("id", { ascending: false });
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    console.error("PUBLIC API ERROR:", err);
+    res.status(500).json({ error: "Failed to load properties" });
+  }
 });
 
 /* ===========================
