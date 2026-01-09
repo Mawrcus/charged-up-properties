@@ -209,6 +209,23 @@ function logout(){
   <div><label>Type<input id="type"></label></div>
   <div><label>Lot Size<input id="lot"></label></div>
   <div><label>Basement<input id="basement"></label></div>
+  <div>
+  <label>
+    Listing URL
+    <input id="listing_url" type="text" placeholder="https://...">
+  </label>
+</div>
+
+<div>
+  <label>
+    Hot Deal
+    <select id="hot_deal">
+      <option value="false">No</option>
+      <option value="true">Yes</option>
+    </select>
+  </label>
+</div>
+
 </div>
 
 <label>Description<textarea id="description"></textarea></label>
@@ -252,6 +269,8 @@ function resetForm(){
   propertyId.value="";
   coverPreview.innerHTML="";
   galleryPreview.innerHTML="";
+
+  document.getElementById("hot_deal").value = "false";
 }
 
 function getGalleryOrder() {
@@ -291,6 +310,8 @@ function populateForm(p){
   propertyId.value=p.id;
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>document.getElementById(k).value=p[k]||"");
+    document.getElementById("listing_url").value = p.listing_url || "";
+document.getElementById("hot_deal").value = p.hot_deal ? "true" : "false";
 
   coverPreview.innerHTML="";
   if(p.cover_image){
@@ -359,6 +380,8 @@ propertyForm.onsubmit=async e=>{
   const fd=new FormData();
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>fd.append(k,document.getElementById(k).value));
+    document.getElementById("listing_url").value = p.listing_url || "";
+document.getElementById("hot_deal").value = p.hot_deal ? "true" : "false";
 
   if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
  // New gallery files (if any)
