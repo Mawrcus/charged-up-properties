@@ -5,6 +5,17 @@ import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
+
+// Public CORS for frontend
+app.use("/api/public", cors({
+  origin: [
+    "https://chargedupdeals.com",
+    "https://www.chargedupdeals.com"
+  ],
+  methods: ["GET"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(cors({
   origin: [
     "https://admin.chargedupdeals.com",
