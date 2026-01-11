@@ -129,7 +129,8 @@ app.get("/api/properties", requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from("properties")
     .select("*")
-    .order("id", { ascending: false });
+    .order("sort_order", { ascending: true })  // manual order first
+    .order("id", { ascending: false });       // fallback to newest
 
   if (error) return res.status(500).json(error);
   res.json(data);
@@ -180,6 +181,7 @@ app.post(
 hot_deal: body.hot_deal === "true" || body.hot_deal === true,
           cover_image,
           gallery_images,
+          sort_order: body.sort_order ? parseInt(body.sort_order) : 0, // default 0
         }])
         .select()
         .single();
@@ -222,6 +224,7 @@ app.put(
         description: body.description || null,
         listing_url: body.listing_url || null,
 hot_deal: body.hot_deal === "true" || body.hot_deal === true,
+sort_order: body.sort_order ? parseInt(body.sort_order) : 0,
       };
 
       // Handle cover image update
@@ -295,9 +298,10 @@ app.delete("/api/properties/:id", requireAuth, async (req, res) => {
 app.get("/api/public/properties", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("properties")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("properties")
+  .select("*")
+  .order("sort_order", { ascending: true })  // manual order first
+  .order("id", { ascending: false });       // fallback to newest
 
     if (error) return res.status(500).json(error);
 

@@ -185,6 +185,7 @@ button:hover{background:#a61f1f}
 </script>
 
 <header>Charged Up Properties – Inventory</header>
+<button onclick="saveInventoryOrder()" style="margin:10px 20px 20px 0;background:#222;color:#fff;padding:10px;border:none;border-radius:6px;cursor:pointer;">Save Inventory Order</button>
 <button onclick="logout()" style="position:absolute;top:20px;right:20px;background:#000;">Logout</button>
 
 <script>
@@ -284,6 +285,48 @@ function enableDrag(container){
   let dragged=null;
   const ghost=document.createElement("div");
 
+  function enableInventoryDrag(container){
+  let dragged=null;
+  container.addEventListener("dragstart", e => {
+    const card = e.target.closest(".card");
+    if(!card) return;
+    dragged = card;
+    card.classList.add("dragging");
+    e.dataTransfer.setData("text/plain", "");
+  });
+
+  async function saveInventoryOrder() {
+  const cards = [...inventory.children];
+  for(let i=0; i<cards.length; i++){
+    const id = parseInt(cards[i].querySelector("button").getAttribute("onclick").match(/\d+/)[0]);
+    await authFetch(`${API}/${id}`, {
+      method: "PUT",
+      body: new FormData(), // empty body except sort_order
+      headers: {} // no Authorization override, handled by authFetch
+    }).then(fd => {
+      const formData = new FormData();
+      formData.append("sort_order", i); // index as sort_order
+      return authFetch(`${API}/${id}`, {method:"PUT", body:formData});
+    });
+  }
+}
+
+  container.addEventListener("dragend", e => {
+    if(dragged) dragged.classList.remove("dragging");
+    dragged = null;
+  });
+
+  container.addEventListener("dragover", e => {
+    e.preventDefault();
+    const card = e.target.closest(".card");
+    if(!card || card === dragged) return;
+
+    const rect = card.getBoundingClientRect();
+    const after = (e.clientY - rect.top) > rect.height / 2;
+    container.insertBefore(dragged, after ? card.nextSibling : card);
+  });
+}
+
   container.addEventListener("dragstart",e=>{
     const preview=e.target.closest(".preview");
     if(!preview) return;
@@ -363,6 +406,7 @@ async function load(){
     c.querySelector(".cover").onclick=()=>openModal(p.cover_image,[p.cover_image]);
     inventory.appendChild(c);
   });
+  enableInventoryDrag(inventory);
 }
 
 async function del(id){
