@@ -274,7 +274,16 @@ function resetForm(){
 }
 
 function getGalleryOrder() {
-  return [...galleryPreview.querySelectorAll("img")].map(img => img.src);
+  return [...galleryPreview.querySelectorAll("img")].map(img => {
+    const src = img.getAttribute("src");
+    // strip domain if present
+    try {
+      const u = new URL(src);
+      return u.pathname;
+    } catch {
+      return src;
+    }
+  });
 }
 
 /* ===== FIXED DRAG LOGIC ===== */
