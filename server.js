@@ -239,7 +239,12 @@ hot_deal: body.hot_deal === "true" || body.hot_deal === true,
       }
       
       if (body.galleryOrder) {
-  update.gallery_images = JSON.parse(body.galleryOrder);
+  const ordered = JSON.parse(body.galleryOrder);
+
+  // SAFETY: only accept valid Supabase public URLs
+  update.gallery_images = ordered.filter(
+    url => typeof url === "string" && url.includes("/storage/v1/object/public/")
+  );
 }
 
       const { data, error } = await supabase
