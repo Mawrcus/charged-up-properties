@@ -229,23 +229,31 @@ hot_deal: body.hot_deal === "true" || body.hot_deal === true,
         update.cover_image = await uploadImage(req.files.coverImage[0]);
       }
 
-      // Handle gallery image update
-      if (req.files?.galleryImages && req.files.galleryImages.length) {
-        const imgs = [];
-        for (const img of req.files.galleryImages) {
-          imgs.push(await uploadImage(img));
-        }
-        update.gallery_images = imgs;
-      }
-      
-      if (body.galleryOrder) {
-  const ordered = JSON.parse(body.galleryOrder);
+     // ===== MERGE EXISTING + NEW GALLERY IMAGES =====
+let finalGallery = [];
 
-  // SAFETY: only accept valid Supabase public URLs
-  update.gallery_images = ordered.filter(
-    url => typeof url === "string" && url.includes("/storage/v1/object/public/")
-  );
+// 1️⃣ Start with the current frontend order if provided
+if (body.galleryOrder) {
+  try {
+    finalGallery = JSON.parse(body.galleryOrder);
+  } catch {
+    finalGallery = [];
+  }
 }
+
+// 2️⃣ Append any newly uploaded gallery images
+if (req.files?.galleryImages && req.files.galleryImages.length) {
+  for (const img of req.files.galleryImages) {
+    const url = await uploadImage(img);
+    finalGallery.push(url);
+  }
+}
+
+// 3️⃣ Only update gallery_images if there is anything
+if (finalGallery.length) {
+  update.gallery_images = finalGallery;
+}
+
 
       const { data, error } = await supabase
         .from("properties")
