@@ -387,11 +387,21 @@ propertyForm.onsubmit=async e=>{
   fd.append("listing_url", document.getElementById("listing_url").value);
   fd.append("hot_deal", document.getElementById("hot_deal").value === "true");
 
-  if(coverImage.files[0]) fd.append("coverImage",coverImage.files[0]);
- // New gallery files (if any)
-[...galleryImages.files].forEach(f => fd.append("galleryImages", f));
+  // COVER IMAGE
+if (coverImage.files && coverImage.files.length > 0) {
+  fd.append("coverImage", coverImage.files[0]);
+}
 
-// Existing gallery order (CRITICAL)
+// GALLERY IMAGES (FOR EDIT & CREATE)
+const galleryInput = document.getElementById("galleryImages");
+
+if (galleryInput && galleryInput.files && galleryInput.files.length > 0) {
+  for (const file of galleryInput.files) {
+    fd.append("galleryImages", file);
+  }
+}
+
+// EXISTING + REORDERED GALLERY (CRITICAL)
 fd.append("galleryOrder", JSON.stringify(getGalleryOrder()));
 
 
