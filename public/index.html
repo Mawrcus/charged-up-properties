@@ -384,6 +384,62 @@ document.getElementById("hot_deal").value = p.hot_deal ? "true" : "false";
     enableDrag(galleryPreview);
   }
 }
+// =========================
+// Inventory drag & auto-sync sort_order
+// =========================
+function enableInventoryDrag(container){
+  let dragged = null;
+
+  container.addEventListener("dragstart", e => {
+    const card = e.target.closest(".card");
+    if(!card) return;
+    dragged = card;
+    card.classList.add("dragging");
+    e.dataTransfer.setData("text/plain", ""); // needed for Firefox
+  });
+
+  container.addEventListener("dragend", e => {
+    if(dragged) dragged.classList.remove("dragging");
+    dragged = null;
+  });
+
+  container.addEventListener("dragover", e => {
+    e.preventDefault();
+    const card = e.target.closest(".card");
+    if(!card || card === dragged) return;
+
+    const rect = card.getBoundingClientRect();
+    const after = (e.clientY - rect.top) > rect.height / 2;
+    container.insertBefore(dragged, after ? card.nextSibling : card);
+
+    // Auto sync sort_order
+    autoUpdateSortOrder();
+  });
+}
+
+let updateTimeout = null;
+
+async function autoUpdateSortOrder(){
+  if(updateTimeout) clearTimeout(updateTimeout);
+
+  updateTimeout = setTimeout(async () => {
+    const cards = [...inventory.children];
+    for(let i = 0; i < cards.length; i++){
+      const btn = cards[i].querySelector(".actions button");
+      if(!btn) continue;
+      const idMatch = btn.getAttribute("onclick").match(/\d+/);
+      if(!idMatch) continue;
+      const id = parseInt(idMatch[0]);
+
+      const fd = new FormData();
+      fd.append("sort_order", i);
+
+      await authFetch(`${API}/${id}`, { method: "PUT", body: fd });
+    }
+    console.log("Inventory sort_order synced");
+  }, 300); // debounce to avoid flooding
+}
+
 
 async function load(){
   const res=await authFetch(API);
@@ -392,6 +448,7 @@ async function load(){
   properties.forEach(p=>{
     const c=document.createElement("div");
     c.className="card";
+    c.draggable = true;
     c.innerHTML=`
       <div class="cover-wrap"><img src="${p.cover_image||''}" class="cover"></div>
       <div class="card-body">
@@ -406,6 +463,8 @@ async function load(){
     c.querySelector(".cover").onclick=()=>openModal(p.cover_image,[p.cover_image]);
     inventory.appendChild(c);
   });
+  
+   // ✅ Enable drag & auto-sync sort_order
   enableInventoryDrag(inventory);
 }
 
