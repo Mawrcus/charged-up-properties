@@ -162,6 +162,23 @@ app.post(
           gallery_images.push(await uploadImage(img));
         }
       }
+      
+      // Get next sort_order (append to bottom)
+const { data: lastItem, error: orderError } = await supabase
+  .from("properties")
+  .select("sort_order")
+  .order("sort_order", { ascending: false })
+  .limit(1)
+  .single();
+
+if (orderError && orderError.code !== "PGRST116") {
+  throw orderError;
+}
+
+const nextSortOrder = lastItem?.sort_order !== undefined
+  ? lastItem.sort_order + 1
+  : 0;
+
 
       const { data, error } = await supabase
         .from("properties")
@@ -181,7 +198,7 @@ app.post(
 hot_deal: body.hot_deal === "true" || body.hot_deal === true,
           cover_image,
           gallery_images,
-          sort_order: body.sort_order ? parseInt(body.sort_order) : 0, // default 0
+           sort_order: nextSortOrder, // 👈 KEY LINE
         }])
         .select()
         .single();
