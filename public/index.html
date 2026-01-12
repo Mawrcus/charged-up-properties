@@ -254,9 +254,9 @@ function logout(){
 <script>
 const API="https://charged-up-properties-backend.onrender.com/api/properties";
 
-async function authFetch(url, options={}){
-  const token=localStorage.getItem("authToken");
-  return fetch(url,{...options,headers:{...(options.headers||{}),Authorization:`Bearer ${token}`}});
+async function authFetch(url, options={}) {
+  const token = localStorage.getItem("authToken");
+  return fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
 }
 
 let properties=[], modalImgs=[], modalIndex=0;
@@ -270,64 +270,19 @@ function resetForm(){
   propertyId.value="";
   coverPreview.innerHTML="";
   galleryPreview.innerHTML="";
-
   document.getElementById("hot_deal").value = "false";
 }
 
 function getGalleryOrder() {
-  return [...galleryPreview.querySelectorAll("img")].map(img =>
-    img.getAttribute("src")
-  );
+  return [...galleryPreview.querySelectorAll("img")].map(img => img.getAttribute("src"));
 }
 
-/* ===== FIXED DRAG LOGIC ===== */
+/* ===== Gallery Drag Logic (unchanged) ===== */
 function enableDrag(container){
   let dragged=null;
   const ghost=document.createElement("div");
 
-  function enableInventoryDrag(container){
-  let dragged=null;
   container.addEventListener("dragstart", e => {
-    const card = e.target.closest(".card");
-    if(!card) return;
-    dragged = card;
-    card.classList.add("dragging");
-    e.dataTransfer.setData("text/plain", "");
-  });
-
-  async function saveInventoryOrder() {
-  const cards = [...inventory.children];
-  for(let i=0; i<cards.length; i++){
-    const id = parseInt(cards[i].querySelector("button").getAttribute("onclick").match(/\d+/)[0]);
-    await authFetch(`${API}/${id}`, {
-      method: "PUT",
-      body: new FormData(), // empty body except sort_order
-      headers: {} // no Authorization override, handled by authFetch
-    }).then(fd => {
-      const formData = new FormData();
-      formData.append("sort_order", i); // index as sort_order
-      return authFetch(`${API}/${id}`, {method:"PUT", body:formData});
-    });
-  }
-}
-
-  container.addEventListener("dragend", e => {
-    if(dragged) dragged.classList.remove("dragging");
-    dragged = null;
-  });
-
-  container.addEventListener("dragover", e => {
-    e.preventDefault();
-    const card = e.target.closest(".card");
-    if(!card || card === dragged) return;
-
-    const rect = card.getBoundingClientRect();
-    const after = (e.clientY - rect.top) > rect.height / 2;
-    container.insertBefore(dragged, after ? card.nextSibling : card);
-  });
-}
-
-  container.addEventListener("dragstart",e=>{
     const preview=e.target.closest(".preview");
     if(!preview) return;
     dragged=preview;
@@ -335,12 +290,12 @@ function enableDrag(container){
     e.dataTransfer.setDragImage(ghost,0,0);
   });
 
-  container.addEventListener("dragend",()=>{
+  container.addEventListener("dragend", ()=>{
     if(dragged) dragged.classList.remove("dragging");
     dragged=null;
   });
 
-  container.addEventListener("dragover",e=>{
+  container.addEventListener("dragover", e=>{
     e.preventDefault();
     const target=e.target.closest(".preview");
     if(!target || target===dragged) return;
@@ -355,8 +310,8 @@ function populateForm(p){
   propertyId.value=p.id;
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>document.getElementById(k).value=p[k]||"");
-    document.getElementById("listing_url").value = p.listing_url || "";
-document.getElementById("hot_deal").value = p.hot_deal ? "true" : "false";
+  document.getElementById("listing_url").value = p.listing_url || "";
+  document.getElementById("hot_deal").value = p.hot_deal ? "true" : "false";
 
   coverPreview.innerHTML="";
   if(p.cover_image){
@@ -384,9 +339,8 @@ document.getElementById("hot_deal").value = p.hot_deal ? "true" : "false";
     enableDrag(galleryPreview);
   }
 }
-// =========================
-// Inventory drag & auto-sync sort_order
-// =========================
+
+/* ===== Inventory Drag & Auto-Sync ===== */
 function enableInventoryDrag(container){
   let dragged = null;
 
@@ -418,7 +372,6 @@ function enableInventoryDrag(container){
 }
 
 let updateTimeout = null;
-
 async function autoUpdateSortOrder(){
   if(updateTimeout) clearTimeout(updateTimeout);
 
@@ -437,10 +390,10 @@ async function autoUpdateSortOrder(){
       await authFetch(`${API}/${id}`, { method: "PUT", body: fd });
     }
     console.log("Inventory sort_order synced");
-  }, 300); // debounce to avoid flooding
+  }, 300); // debounce
 }
 
-
+/* ===== Load Inventory ===== */
 async function load(){
   const res=await authFetch(API);
   properties=await res.json();
@@ -463,50 +416,29 @@ async function load(){
     c.querySelector(".cover").onclick=()=>openModal(p.cover_image,[p.cover_image]);
     inventory.appendChild(c);
   });
-  
-   // ✅ Enable drag & auto-sync sort_order
+
+  // ✅ Enable inventory drag with auto-sync
   enableInventoryDrag(inventory);
 }
 
-async function del(id){
-  if(confirm("Delete property?")){
-    await authFetch(`${API}/${id}`,{method:"DELETE"});
-    load();
-  }
-}
-
-function edit(id){
-  const p=properties.find(x=>x.id===id);
-  if(p) populateForm(p);
-}
+/* ===== Other Functions (unchanged) ===== */
+async function del(id){ if(confirm("Delete property?")){ await authFetch(`${API}/${id}`,{method:"DELETE"}); load(); } }
+function edit(id){ const p=properties.find(x=>x.id===id); if(p) populateForm(p); }
 
 propertyForm.onsubmit=async e=>{
   e.preventDefault();
   const fd=new FormData();
   ["name","price","status","address","beds","baths","sqft","type","lot","basement","description"]
     .forEach(k=>fd.append(k,document.getElementById(k).value));
-    
-   // ✅ NEW: Append the listing_url and hot_deal fields from the form inputs
   fd.append("listing_url", document.getElementById("listing_url").value);
   fd.append("hot_deal", document.getElementById("hot_deal").value === "true");
 
-  // COVER IMAGE
-if (coverImage.files && coverImage.files.length > 0) {
-  fd.append("coverImage", coverImage.files[0]);
-}
-
-// GALLERY IMAGES (FOR EDIT & CREATE)
-const galleryInput = document.getElementById("galleryImages");
-
-if (galleryInput && galleryInput.files && galleryInput.files.length > 0) {
-  for (const file of galleryInput.files) {
-    fd.append("galleryImages", file);
+  if(coverImage.files && coverImage.files.length > 0) fd.append("coverImage", coverImage.files[0]);
+  const galleryInput = document.getElementById("galleryImages");
+  if(galleryInput && galleryInput.files && galleryInput.files.length > 0) {
+    for (const file of galleryInput.files) fd.append("galleryImages", file);
   }
-}
-
-// EXISTING + REORDERED GALLERY (CRITICAL)
-fd.append("galleryOrder", JSON.stringify(getGalleryOrder()));
-
+  fd.append("galleryOrder", JSON.stringify(getGalleryOrder()));
 
   await authFetch(propertyId.value?`${API}/${propertyId.value}`:API,{
     method:propertyId.value?"PUT":"POST",
@@ -517,55 +449,24 @@ fd.append("galleryOrder", JSON.stringify(getGalleryOrder()));
   load();
 }
 
-function openModal(src,list){
-  modal.style.display="flex";
-  modalImg.src=src;
-  modalImgs=list||[src];
-  modalIndex=modalImgs.indexOf(src);
-  magnified=false;
-  modalImg.style.transform="scale(1)";
-  zoomLevel.style.display="none";
-}
-
+/* ===== Modal Logic (unchanged) ===== */
+function openModal(src,list){ modal.style.display="flex"; modalImg.src=src; modalImgs=list||[src]; modalIndex=modalImgs.indexOf(src); magnified=false; modalImg.style.transform="scale(1)"; zoomLevel.style.display="none"; }
 document.querySelector(".close").onclick=()=>modal.style.display="none";
 document.querySelector(".prev").onclick=()=>openModal(modalImgs[(--modalIndex+modalImgs.length)%modalImgs.length],modalImgs);
 document.querySelector(".next").onclick=()=>openModal(modalImgs[(++modalIndex)%modalImgs.length],modalImgs);
 
-/* KEYBOARD ARROW NAVIGATION */
-window.addEventListener("keydown", e => {
-  if (modal.style.display !== "flex") return;
-
-  if (e.key === "ArrowLeft") {
-    document.querySelector("#modal .prev").click();
-  }
-  if (e.key === "ArrowRight") {
-    document.querySelector("#modal .next").click();
-  }
+window.addEventListener("keydown", e=>{
+  if(modal.style.display!=="flex") return;
+  if(e.key==="ArrowLeft") document.querySelector("#modal .prev").click();
+  if(e.key==="ArrowRight") document.querySelector("#modal .next").click();
 });
 
-modalImg.onclick=()=>{
-  magnified=!magnified;
-  modalImg.style.transform=magnified?`scale(${zoomFactor})`:"scale(1)";
-  zoomLevel.style.display=magnified?"block":"none";
-};
-
-modal.onmousemove=e=>{
-  if(magnified){
-    const r=modalImg.getBoundingClientRect();
-    modalImg.style.transformOrigin=`${(e.clientX-r.left)/r.width*100}% ${(e.clientY-r.top)/r.height*100}%`;
-  }
-};
-
-modal.onwheel=e=>{
-  if(magnified){
-    e.preventDefault();
-    zoomFactor=Math.min(Math.max(1,zoomFactor+(e.deltaY<0?.2:-.2)),5);
-    modalImg.style.transform=`scale(${zoomFactor})`;
-    zoomLevel.textContent=zoomFactor.toFixed(2)+"x";
-  }
-};
+modalImg.onclick=()=>{ magnified=!magnified; modalImg.style.transform=magnified?`scale(${zoomFactor})`:"scale(1)"; zoomLevel.style.display=magnified?"block":"none"; };
+modal.onmousemove=e=>{ if(magnified){ const r=modalImg.getBoundingClientRect(); modalImg.style.transformOrigin=`${(e.clientX-r.left)/r.width*100}% ${(e.clientY-r.top)/r.height*100}%`; } };
+modal.onwheel=e=>{ if(magnified){ e.preventDefault(); zoomFactor=Math.min(Math.max(1,zoomFactor+(e.deltaY<0?.2:-.2)),5); modalImg.style.transform=`scale(${zoomFactor})`; zoomLevel.textContent=zoomFactor.toFixed(2)+"x"; } };
 
 load();
 </script>
+
 </body>
 </html>
