@@ -278,6 +278,35 @@ if (finalGallery.length) {
   }
 );
 
+/* ===========================
+   UPDATE SORT ORDER ONLY
+=========================== */
+app.patch("/api/properties/:id", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sort_order } = req.body;
+
+    if (sort_order === undefined) {
+      return res.status(400).json({ error: "sort_order required" });
+    }
+
+    const { error } = await supabase
+      .from("properties")
+      .update({ sort_order: parseInt(sort_order) })
+      .eq("id", id);
+
+    if (error) {
+      console.error("SORT ORDER UPDATE ERROR:", error);
+      return res.status(500).json({ error });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("PATCH ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 /* ===========================
    DELETE PROPERTY (PROTECTED)
