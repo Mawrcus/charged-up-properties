@@ -241,7 +241,6 @@ app.put(
         description: body.description || null,
         listing_url: body.listing_url || null,
 hot_deal: body.hot_deal === "true" || body.hot_deal === true,
-sort_order: body.sort_order ? parseInt(body.sort_order) : 0,
       };
 
       // Handle cover image update
