@@ -355,6 +355,9 @@ function enableInventoryDrag(container){
   container.addEventListener("dragend", e => {
     if(dragged) dragged.classList.remove("dragging");
     dragged = null;
+
+    // Auto sync sort_order
+    autoUpdateSortOrder();
   });
 
   container.addEventListener("dragover", e => {
@@ -366,8 +369,6 @@ function enableInventoryDrag(container){
     const after = (e.clientY - rect.top) > rect.height / 2;
     container.insertBefore(dragged, after ? card.nextSibling : card);
 
-    // Auto sync sort_order
-    autoUpdateSortOrder();
   });
 }
 
@@ -387,7 +388,11 @@ async function autoUpdateSortOrder(){
       const fd = new FormData();
       fd.append("sort_order", i);
 
-      await authFetch(`${API}/${id}`, { method: "PUT", body: fd });
+      await authFetch(`${API}/${id}`, {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ sort_order: i })
+});
     }
     console.log("Inventory sort_order synced");
   }, 300); // debounce
